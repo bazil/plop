@@ -1,0 +1,94 @@
+digraph "bazil.org/plop crypto" {
+  /* shape usage:
+  parallelogram: human-friendly string
+  tab: file contents
+  box3d: encrypted data
+  */
+  subgraph cluster_userInput {
+    label="user input";
+    style=dotted;
+    node [color=darkgreen, shape=box];
+    sharingPassphrase [shape=parallelogram];
+    plaintext [shape=tab];
+  }
+  subgraph cluster_output {
+    label="confidential output";
+    style=dotted;
+    node [color=blue];
+    key [shape=box];
+  }
+  subgraph cluster_public {
+    label="non-confidential output";
+    style=dotted;
+    node [color=red];
+    blob [shape=box3d];
+    boxedKey [shape=note];
+  }
+  subgraph cluster_kdf {
+    node [shape=box];
+    sharingSecret;
+    nonceSecret;
+    hashSecret;
+    blobSecret;
+    nameSecret;
+    chunkerXOF;
+
+    node [shape=ellipse];
+    kdfSharing [label="argon2.IDKey\nsalt=\".../sharing\""];
+    sharingPassphrase -> kdfSharing -> sharingSecret;
+
+    deriveBlobSecret [label="blake3.DeriveKey\ncontext=\".../blob\""];
+    sharingSecret -> deriveBlobSecret -> blobSecret;
+
+    deriveHashSecret [label="blake3.DeriveKey\ncontext=\".../hash\""];
+    sharingSecret -> deriveHashSecret -> hashSecret;
+
+    deriveNameSecret [label="blake3.DeriveKey\ncontext=\".../name\""];
+    sharingSecret -> deriveNameSecret -> nameSecret;
+
+    deriveNonce [label="blake3.DeriveKey\ncontext=\".../nonce\""];
+    sharingSecret -> deriveNonce -> nonceSecret;
+
+    deriveRollingXOF [label="blake3.DeriveKey\ncontext=\".../roll\""];
+    sharingSecret -> deriveRollingXOF -> chunkerXOF;
+}
+
+  /* layout */
+  key -> boxedKey [minlen=0, style=invis];
+
+  chunkerXOF -> "chunker.DerivePolynomial";
+  chunks [shape=record, label="{chunks|...|...}"];
+  extents [shape=box];
+  {plaintext; "chunker.DerivePolynomial";} -> chunker -> {chunks; extents};
+  data [shape=box];
+  {chunks;extents} -> data [samehead=data];
+
+  hash [shape=box];
+  nonce [shape=box];
+
+  hashBlob [label="blake3.KeyedHash"];
+  data -> hashBlob -> hash;
+  hashSecret -> hashBlob [label="key"];
+  zbase32Key [label="zbase32"];
+  hash -> zbase32Key -> key;
+
+  hashNonce [label="blake3.KeyedHash"];
+  hash -> hashNonce -> nonce;
+  nonceSecret -> hashNonce [label="key"];
+
+  hashBoxedKey [label="blake3.KeyedHash"];
+  zbase32BoxedKey [label="zbase32"];
+  hash -> hashBoxedKey -> zbase32BoxedKey -> boxedKey;
+  nameSecret -> hashBoxedKey [label="key"];
+
+  zstd;
+  compressed [shape=box];
+  data -> zstd -> compressed;
+
+  AEAD;
+  blobSecret -> AEAD [label="key"];
+  nonce -> AEAD [label="nonce"];
+  hash -> AEAD [label="auth"];
+  compressed -> AEAD [label="plaintext"];
+  AEAD -> blob;
+}
