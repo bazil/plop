@@ -2,6 +2,7 @@ package read
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,10 @@ import (
 
 type readCommand struct {
 	subcommands.Description
+	flag.FlagSet
+	Flags struct {
+		Volume string
+	}
 	Arguments struct {
 		Key []string
 	}
@@ -31,7 +36,7 @@ func (c *readCommand) readKey(ctx context.Context, store *cas.Store, k string, w
 
 func (c *readCommand) Run() error {
 	ctx := context.TODO()
-	store, err := cliplop.Plop.Store()
+	store, err := cliplop.Plop.Store(c.Flags.Volume)
 	if err != nil {
 		return err
 	}
@@ -49,5 +54,6 @@ var read = readCommand{
 }
 
 func init() {
+	read.StringVar(&read.Flags.Volume, "volume", "", "volume to read to")
 	subcommands.Register(&read)
 }

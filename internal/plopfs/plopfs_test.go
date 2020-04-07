@@ -11,12 +11,18 @@ import (
 
 	"bazil.org/fuse/fs/fstestutil"
 	"bazil.org/plop/cas"
+	"bazil.org/plop/internal/config"
 	"bazil.org/plop/internal/plopfs"
-	"gocloud.dev/blob/memblob"
+	"gocloud.dev/blob/fileblob"
 )
 
-func withMount(t testing.TB, store *cas.Store, fn func(mntpath string)) {
-	filesys := plopfs.New(store)
+func withMount(t testing.TB, configText string, fn func(mntpath string)) {
+	t.Helper()
+	cfg, err := config.ParseConfig("<test literal>.hcl", []byte(configText))
+	if err != nil {
+		t.Fatal(err)
+	}
+	filesys := plopfs.New(cfg)
 	mnt, err := fstestutil.MountedT(t, filesys, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -61,14 +67,64 @@ func mustWriteBlob(t *testing.T, store *cas.Store, data []byte) string {
 	return key
 }
 
-func TestReaddir(t *testing.T) {
-	bucket := memblob.OpenBucket(nil)
-	defer bucket.Close()
-	store := cas.NewStore(bucket, "s3kr1t")
-	// demonstrate that regular objects are not visible in readdir
-	_ = mustWriteBlob(t, store, []byte("dummy"))
-	withMount(t, store, func(mntpath string) {
+func tempDir(tb testing.TB) string {
+	// TODO with go1.15 use testing.TB.TempDir
+	tb.Helper()
+	p, err := ioutil.TempDir("", "plopfs-test-*.tmp")
+	if err != nil {
+		tb.Fatalf("cannot make temp dir: %v", err)
+	}
+	tb.Cleanup(func() {
+		if err := os.RemoveAll(p); err != nil {
+			tb.Errorf("cannot clean temp dir: %v", err)
+		}
+	})
+	return p
+}
+
+func TestRootReaddir(t *testing.T) {
+	tmp := tempDir(t)
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
 		fis, err := ioutil.ReadDir(mntpath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if g, e := len(fis), 1; g != e {
+			t.Fatalf("wrong readdir results: got %v", fis)
+		}
+		checkFI(t, fis[0], fileInfo{
+			name: "testvolume",
+			mode: os.ModeDir | 0555,
+		})
+	})
+}
+
+func TestVolumeReaddir(t *testing.T) {
+	tmp := tempDir(t)
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
+		fis, err := ioutil.ReadDir(filepath.Join(mntpath, "testvolume"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -79,15 +135,29 @@ func TestReaddir(t *testing.T) {
 }
 
 func TestRead(t *testing.T) {
-	bucket := memblob.OpenBucket(nil)
+	tmp := tempDir(t)
+	bucket, err := fileblob.OpenBucket(tmp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer bucket.Close()
 	store := cas.NewStore(bucket, "s3kr1t")
-
 	const greeting = "hello, world\n"
 	key := mustWriteBlob(t, store, []byte(greeting))
 
-	withMount(t, store, func(mntpath string) {
-		f, err := os.Open(filepath.Join(mntpath, key))
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
+		f, err := os.Open(filepath.Join(mntpath, "testvolume", key))
 		if err != nil {
 			t.Fatalf("Open: %v", err)
 		}

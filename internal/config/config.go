@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
 )
@@ -34,12 +35,23 @@ type Bucket struct {
 	URL string `hcl:"url"`
 }
 
+func ParseConfig(filename string, src []byte) (*Config, error) {
+	var cfg Config
+	if err := hclsimple.Decode(filename, src, nil, &cfg); err != nil {
+		return nil, fmt.Errorf("cannot read config: %w", err)
+	}
+	return parseConfig(&cfg)
+}
+
 func ReadConfig(p string) (*Config, error) {
 	var cfg Config
 	if err := hclsimple.DecodeFile(p, nil, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
+	return parseConfig(&cfg)
+}
 
+func parseConfig(cfg *Config) (*Config, error) {
 	if p := cfg.MountPoint; p == "" || !filepath.IsAbs(p) {
 		return nil, errors.New("config field mountpoint must be an absolute path")
 	}
@@ -61,6 +73,9 @@ func ReadConfig(p string) (*Config, error) {
 	}
 
 	for _, vol := range cfg.Volumes {
+		if strings.ContainsAny(vol.Name, "/\x00") {
+			return nil, fmt.Errorf("config field volume %q name must not contain slashes or zero bytes", vol.Name)
+		}
 		if vol.Passphrase == "" {
 			return nil, fmt.Errorf("config field volume %q passphrase must be set", vol.Name)
 		}
@@ -72,5 +87,5 @@ func ReadConfig(p string) (*Config, error) {
 		}
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }

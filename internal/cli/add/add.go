@@ -4,17 +4,23 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"bazil.org/plop/cas"
 	cliplop "bazil.org/plop/internal/cli"
 	"github.com/tv42/cliutil/subcommands"
 )
 
 type addCommand struct {
 	subcommands.Description
+	flag.FlagSet
+	Flags struct {
+		Volume string
+	}
 	Arguments struct {
 		File []string
 	}
@@ -57,24 +63,17 @@ func replaceWithSymlink(target, path string) error {
 	return nil
 }
 
-func (c *addCommand) addPath(p string) error {
+func (c *addCommand) addPath(ctx context.Context, store *cas.Store, targetPrefix string, p string) error {
 	f, err := os.Open(p)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	store, err := cliplop.Plop.Store()
-	if err != nil {
-		return err
-	}
-	ctx := context.TODO()
 	key, err := store.Create(ctx, f)
 	if err != nil {
 		return err
 	}
-	// TODO un-hardcode path to plop
-	plopPath := "mnt"
-	target := filepath.Join(plopPath, key)
+	target := filepath.Join(targetPrefix, key)
 	if err := replaceWithSymlink(target, p); err != nil {
 		return fmt.Errorf("cannot make symlink: %w", err)
 	}
@@ -82,8 +81,19 @@ func (c *addCommand) addPath(p string) error {
 }
 
 func (c *addCommand) Run() error {
+	ctx := context.TODO()
+	cfg, err := cliplop.Plop.Config()
+	if err != nil {
+		return err
+	}
+	vol := cfg.GetDefaultVolume()
+	store, err := cliplop.Plop.Store(c.Flags.Volume)
+	if err != nil {
+		return err
+	}
+	targetPrefix := filepath.Join(cfg.MountPoint, vol.Name)
 	for _, p := range c.Arguments.File {
-		if err := c.addPath(p); err != nil {
+		if err := c.addPath(ctx, store, targetPrefix, p); err != nil {
 			return fmt.Errorf("cannot add to plop: %v", err)
 		}
 	}
@@ -95,5 +105,6 @@ var add = addCommand{
 }
 
 func init() {
+	add.StringVar(&add.Flags.Volume, "volume", "", "volume to add file to")
 	subcommands.Register(&add)
 }

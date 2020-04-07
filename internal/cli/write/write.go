@@ -3,6 +3,7 @@ package write
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,10 @@ import (
 
 type writeCommand struct {
 	subcommands.Description
+	flag.FlagSet
+	Flags struct {
+		Volume string
+	}
 	Arguments struct {
 		positional.Optional
 		File []string
@@ -42,7 +47,7 @@ func (c *writeCommand) writeFromPath(ctx context.Context, store *cas.Store, p st
 
 func (c *writeCommand) Run() error {
 	ctx := context.TODO()
-	store, err := cliplop.Plop.Store()
+	store, err := cliplop.Plop.Store(c.Flags.Volume)
 	if err != nil {
 		return err
 	}
@@ -70,5 +75,6 @@ var write = writeCommand{
 }
 
 func init() {
+	write.StringVar(&write.Flags.Volume, "volume", "", "volume to write to")
 	subcommands.Register(&write)
 }

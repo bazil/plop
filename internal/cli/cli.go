@@ -54,13 +54,22 @@ func (p *plop) Config() (*config.Config, error) {
 	return config.ReadConfig(p.Flags.Config)
 }
 
-func (p *plop) Store() (*cas.Store, error) {
+// Store returns the CAS store for the given volume name. If volume
+// name is the empty string, default volume will be used.
+func (p *plop) Store(volumeName string) (*cas.Store, error) {
 	cfg, err := p.Config()
 	if err != nil {
 		return nil, err
 	}
 	ctx := context.TODO()
 	vol := cfg.GetDefaultVolume()
+	if volumeName != "" {
+		v, ok := cfg.GetVolume(volumeName)
+		if !ok {
+			return nil, fmt.Errorf("no such volume: %q", volumeName)
+		}
+		vol = v
+	}
 	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
 	if err != nil {
 		return nil, err
