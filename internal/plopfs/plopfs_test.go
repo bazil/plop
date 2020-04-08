@@ -22,7 +22,15 @@ func withMount(t testing.TB, configText string, fn func(mntpath string)) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	filesys := plopfs.New(cfg)
+	filesys, err := plopfs.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := filesys.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	mnt, err := fstestutil.MountedT(t, filesys, nil)
 	if err != nil {
 		t.Fatal(err)
