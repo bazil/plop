@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"syscall"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -40,5 +41,6 @@ func (v *Volume) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse
 	n := &File{
 		handle: h,
 	}
+	resp.EntryValid = 24 * time.Hour
 	return n, nil
 }

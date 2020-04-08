@@ -3,6 +3,7 @@ package plopfs
 import (
 	"context"
 	"io"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -19,6 +20,7 @@ var _ = fs.Handle(&File{})
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Mode = 0444
 	a.Size = uint64(f.handle.Size())
+	a.Valid = 24 * time.Hour
 	return nil
 }
 
