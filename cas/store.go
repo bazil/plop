@@ -58,7 +58,7 @@ const (
 	//
 	// The version number at the end controls crypto algorithm and
 	// plaintext content format.
-	contentTypeV0 = "application/x.org.bazil.plop.v0"
+	contentTypeV1 = "application/x.org.bazil.plop.v1"
 )
 
 const (
@@ -212,7 +212,7 @@ func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byt
 	opts := &blob.WriterOptions{
 		CacheControl:    "public, max-age=2147483648, immutable",
 		ContentEncoding: "identity",
-		ContentType:     contentTypeV0,
+		ContentType:     contentTypeV1,
 		BeforeWrite: func(as func(interface{}) bool) error {
 			// do not add more preconditions without considering the
 			// error checking below
@@ -254,7 +254,7 @@ func (s *Store) downloadFromBackend(ctx context.Context, boxedKey string, prefix
 		}
 		return nil, err
 
-	case contentTypeV0:
+	case contentTypeV1:
 		return s._downloadFromBackendV0(prefix, br)
 	}
 }
