@@ -2,7 +2,9 @@ package plopfs
 
 import (
 	"context"
+	"errors"
 	"os"
+	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -26,7 +28,12 @@ var _ = fs.NodeRequestLookuper(&Volume{})
 func (v *Volume) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fs.Node, error) {
 	h, err := v.store.Open(ctx, req.Name)
 	if err != nil {
-		// TODO map errors: ErrBadKey, gcerrors
+		if errors.Is(err, cas.ErrBadKey) {
+			return nil, syscall.ENOENT
+		}
+		if errors.Is(err, cas.ErrNotExist) {
+			return nil, syscall.ENOENT
+		}
 		return nil, err
 	}
 

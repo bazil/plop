@@ -3,6 +3,7 @@ package plopfs_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -118,6 +119,46 @@ volume "testvolume" {
 	})
 }
 
+func TestStat(t *testing.T) {
+	tmp := tempDir(t)
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
+		{
+			// root
+			fi, err := os.Stat(mntpath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkFI(t, fi, fileInfo{
+				name: fi.Name(), // random tempdir name
+				mode: os.ModeDir | 0555,
+			})
+		}
+
+		{
+			// volume
+			fi, err := os.Stat(filepath.Join(mntpath, "testvolume"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkFI(t, fi, fileInfo{
+				name: "testvolume",
+				mode: os.ModeDir | 0555,
+			})
+		}
+	})
+}
+
 func TestVolumeReaddir(t *testing.T) {
 	tmp := tempDir(t)
 	config := fmt.Sprintf(`
@@ -138,6 +179,27 @@ volume "testvolume" {
 		}
 		if g, e := len(fis), 0; g != e {
 			t.Fatalf("wrong readdir results: got %v", fis)
+		}
+	})
+}
+
+func TestVolumeNotExist(t *testing.T) {
+	tmp := tempDir(t)
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
+		_, err := os.Stat(filepath.Join(mntpath, "does-not-exist"))
+		if !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected ErrNotExist, got %v", err)
 		}
 	})
 }
@@ -183,6 +245,35 @@ volume "testvolume" {
 		}
 		if g, e := string(data), greeting; g != e {
 			t.Fatalf("wrong read results: %q != %q", g, e)
+		}
+	})
+}
+
+func TestKeyNotExist(t *testing.T) {
+	tmp := tempDir(t)
+	config := fmt.Sprintf(`
+mountpoint = "/does-not-exist"
+default_volume = "testvolume"
+volume "testvolume" {
+  passphrase = "s3kr1t"
+  bucket {
+    url = %q
+  }
+}
+`, "file://"+tmp)
+
+	withMount(t, config, func(mntpath string) {
+		for _, badkey := range []string{
+			"ne5em96397gwhy4cow3jmifggc7ssewzbfaiaao77kq3ea83n5cy",
+			"not-really-a-hash",
+		} {
+			f, err := os.Open(filepath.Join(mntpath, "testvolume", badkey))
+			if !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("expected ErrNotExist, got: %v", err)
+			}
+			if err == nil {
+				f.Close()
+			}
 		}
 	})
 }

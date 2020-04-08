@@ -33,6 +33,7 @@ import (
 
 var (
 	ErrBadKey      = errors.New("bad key")
+	ErrNotExist    = errors.New("object does not exist")
 	ErrCorruptBlob = errors.New("blob is corrupted")
 )
 

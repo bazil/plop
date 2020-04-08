@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/tv42/zbase32"
+	"gocloud.dev/gcerrors"
 )
 
 type Handle struct {
@@ -26,6 +27,9 @@ func newHandle(ctx context.Context, s *Store, key string) (*Handle, error) {
 	}
 	extents, err := s.loadObject(ctx, prefixExtents, hash)
 	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			return nil, ErrNotExist
+		}
 		return nil, err
 	}
 	if l := len(extents); l%(8+32) != 0 {
