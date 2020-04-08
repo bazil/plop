@@ -78,7 +78,13 @@ func (f *PlopFS) Root() (fs.Node, error) {
 }
 
 func Mount(cfg *config.Config) error {
-	c, err := fuse.Mount(cfg.MountPoint)
+	c, err := fuse.Mount(cfg.MountPoint,
+		fuse.Subtype("plopfs"),
+		fuse.ReadOnly(),
+		fuse.AsyncRead(),
+		fuse.MaxReadahead(8*1024*1024),
+		fuse.DefaultPermissions(),
+	)
 	if err != nil {
 		return err
 	}
