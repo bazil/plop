@@ -344,7 +344,16 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 
 func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 	var extents bytes.Buffer
-	ch := chunker.New(r, s.chunkerPolynomial)
+	const (
+		// TODO take these from config
+
+		MiB  = 1024 * 1024
+		min  = 4 * MiB
+		max  = 16 * MiB
+		bits = 23 // average 8MB
+	)
+	ch := chunker.NewWithBoundaries(r, s.chunkerPolynomial, min, max)
+	ch.SetAverageBits(bits)
 	buf := make([]byte, 8*1024*1024)
 	extent := make([]byte, 8+32)
 	var offset uint64
