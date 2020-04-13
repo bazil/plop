@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"io"
 
+	"cloud.google.com/go/storage"
 	"github.com/klauspost/compress/zstd"
 	"github.com/restic/chunker"
 	"github.com/tv42/zbase32"
 	"github.com/zeebo/blake3"
 	"gocloud.dev/blob"
+	"gocloud.dev/gcerrors"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/chacha20poly1305"
 )
@@ -187,13 +189,50 @@ func (s *Store) boxKey(key []byte) []byte {
 }
 
 func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byte) error {
+	hasCreateIfNotExist := false
+	if gcsClient := (*storage.Client)(nil); s.bucket.As(&gcsClient) {
+		hasCreateIfNotExist = true
+	}
+	if !hasCreateIfNotExist {
+		// object bodies smaller than this aren't worth a separate
+		// request to avoid transferring
+		const preflightSize = 1 * 1024 * 1024
+		if len(data) > preflightSize {
+			// do a HEAD to avoid transferring data over and over
+			exists, err := s.bucket.Exists(ctx, boxedKey)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return nil
+			}
+		}
+	}
+
 	opts := &blob.WriterOptions{
 		CacheControl:    "public, max-age=2147483648, immutable",
 		ContentEncoding: "identity",
 		ContentType:     contentTypeV0,
-		// TODO BeforeWrite
+		BeforeWrite: func(as func(interface{}) bool) error {
+			// do not add more preconditions without considering the
+			// error checking below
+			var obj **storage.ObjectHandle
+			if as(&obj) {
+				*obj = (*obj).If(storage.Conditions{
+					// if not exist
+					GenerationMatch: 0,
+				})
+			}
+			return nil
+		},
 	}
 	if err := s.bucket.WriteAll(ctx, boxedKey, data, opts); err != nil {
+		switch gcerrors.Code(err) {
+		case gcerrors.AlreadyExists:
+			return nil
+		case gcerrors.FailedPrecondition:
+			return nil
+		}
 		return fmt.Errorf("object write: %w", err)
 	}
 	return nil
