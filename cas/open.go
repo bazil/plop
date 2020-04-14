@@ -64,6 +64,7 @@ type Reader struct {
 	ctx    context.Context
 
 	extentAt     int
+	extentBuf    []byte
 	extentOffset int
 }
 
@@ -108,14 +109,18 @@ func (r *Reader) Read(p []byte) (int, error) {
 	if !ok {
 		return 0, io.EOF
 	}
-	buf, err := r.handle.store.loadObject(r.ctx, prefixBlob, hash)
-	if err != nil {
-		return 0, err
+	if r.extentBuf == nil {
+		buf, err := r.handle.store.loadObject(r.ctx, prefixBlob, hash)
+		if err != nil {
+			return 0, err
+		}
+		r.extentBuf = buf
 	}
-	buf = buf[r.extentOffset:]
+	buf := r.extentBuf[r.extentOffset:]
 	n := copy(p, buf)
 	if n == len(buf) {
 		r.extentAt += extentSize
+		r.extentBuf = nil
 		r.extentOffset = 0
 	} else {
 		r.extentOffset += n
