@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"bazil.org/plop/cas"
@@ -48,24 +49,17 @@ func TestRoundtrip(t *testing.T) {
 
 	// intentionally enforce harsh lifetimes on contexts to make
 	// sure we don't remember them too long
-	ctxW := context.Background()
-	ctxW, cancelW := context.WithCancel(ctxW)
-	defer cancelW()
-	w := s.Create(ctxW)
-	defer w.Abort()
+	ctxCreate, cancelCreate := context.WithCancel(context.Background())
+	defer cancelCreate()
 	const greeting = "hello, world\n"
-	if _, err := w.Write([]byte(greeting)); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	key, err := w.Commit()
+	key, err := s.Create(ctxCreate, strings.NewReader(greeting))
 	if err != nil {
-		t.Fatalf("Commit: %v", err)
+		t.Fatalf("Create: %v", err)
 	}
-	cancelW()
+	cancelCreate()
 	t.Logf("created %s", key)
 
-	ctxOpen := context.Background()
-	ctxOpen, cancelOpen := context.WithCancel(ctxOpen)
+	ctxOpen, cancelOpen := context.WithCancel(context.Background())
 	defer cancelOpen()
 	h, err := s.Open(ctxOpen, key)
 	if err != nil {
@@ -99,16 +93,13 @@ func TestCreateSizeZero(t *testing.T) {
 
 	// intentionally enforce harsh lifetimes on contexts to make
 	// sure we don't remember them too long
-	ctxW := context.Background()
-	ctxW, cancelW := context.WithCancel(ctxW)
-	defer cancelW()
-	w := s.Create(ctxW)
-	defer w.Abort()
-	key, err := w.Commit()
+	ctxCreate, cancelCreate := context.WithCancel(context.Background())
+	defer cancelCreate()
+	key, err := s.Create(ctxCreate, strings.NewReader(""))
 	if err != nil {
-		t.Fatalf("Commit: %v", err)
+		t.Fatalf("Create: %v", err)
 	}
-	cancelW()
+	cancelCreate()
 	t.Logf("created %s", key)
 
 	ctxOpen := context.Background()
@@ -143,15 +134,10 @@ func TestReadAt(t *testing.T) {
 	ctx := context.Background()
 	b := memblob.OpenBucket(nil)
 	s := cas.NewStore(b, "s3kr1t")
-	w := s.Create(ctx)
-	defer w.Abort()
 	const greeting = "hello, world\n"
-	if _, err := w.Write([]byte(greeting)); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	key, err := w.Commit()
+	key, err := s.Create(ctx, strings.NewReader(greeting))
 	if err != nil {
-		t.Fatalf("Commit: %v", err)
+		t.Fatalf("Create: %v", err)
 	}
 
 	h, err := s.Open(ctx, key)

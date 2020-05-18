@@ -16,18 +16,9 @@ func Fuzz(data []byte) int {
 	s := NewStore(b, "s3kr1t")
 
 	ctx := context.Background()
-	w := s.Create(ctx)
-	defer w.Abort()
-	n, err := w.Write(data)
+	key, err := s.Create(ctx, bytes.NewReader(data))
 	if err != nil {
-		panic(fmt.Errorf("write failed: %v", err))
-	}
-	if g, e := n, len(data); g != e {
-		panic(fmt.Errorf("wrong length: %d != %%d", g, e))
-	}
-	key, err := w.Commit()
-	if err != nil {
-		panic(fmt.Errorf("commit error: %w", err))
+		panic(fmt.Errorf("create error: %w", err))
 	}
 
 	h, err := s.Open(ctx, key)

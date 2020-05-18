@@ -56,14 +56,9 @@ func TestQuickCompareRead(t *testing.T) {
 	s := cas.NewStore(b, "s3kr1t")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	w := s.Create(ctx)
-	defer w.Abort()
-	if _, err := w.Write(buf); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	key, err := w.Commit()
+	key, err := s.Create(ctx, bytes.NewReader(buf))
 	if err != nil {
-		t.Fatalf("commit: %v", err)
+		t.Fatalf("create: %v", err)
 	}
 	h, err := s.Open(ctx, key)
 	if err != nil {

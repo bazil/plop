@@ -17,8 +17,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/cipher"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/restic/chunker"
@@ -30,10 +32,8 @@ import (
 )
 
 var (
-	ErrAborted          = errors.New("aborted")
-	ErrAlreadyCommitted = errors.New("already committed")
-	ErrBadKey           = errors.New("bad key")
-	ErrCorruptBlob      = errors.New("blob is corrupted")
+	ErrBadKey      = errors.New("bad key")
+	ErrCorruptBlob = errors.New("blob is corrupted")
 )
 
 type UnexpectedContentTypeError struct {
@@ -302,8 +302,47 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 	return zbuf.Bytes(), nil
 }
 
-func (s *Store) Create(ctx context.Context) *Writer {
-	return newWriter(ctx, s)
+func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
+	var extents bytes.Buffer
+	ch := chunker.New(r, s.chunkerPolynomial)
+	buf := make([]byte, 8*1024*1024)
+	extent := make([]byte, 8+32)
+	var offset uint64
+	for {
+		chunk, err := ch.Next(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		keyRaw, _, err := s.saveObject(ctx, prefixBlob, chunk.Data)
+		if err != nil {
+			return "", err
+		}
+		// First extent always starts at 0, so store *end offset* in
+		// extents. This means last extent tells us length of file.
+		//
+		// A file of size 0 will not have any extents.
+		//
+		// A file of size 1 will have extent with endOffset=1.
+		//
+		// TODO also store size in symlink target?
+		offset += uint64(len(chunk.Data))
+		binary.BigEndian.PutUint64(extent[:8], offset)
+		if n := copy(extent[8:], keyRaw); n != len(extent)-8 {
+			panic("extent key length error")
+		}
+		_, _ = extents.Write(extent)
+	}
+
+	plaintext := extents.Bytes()
+	keyRaw, _, err := s.saveObject(ctx, prefixExtents, plaintext)
+	if err != nil {
+		return "", err
+	}
+	key := zbase32.EncodeToString(keyRaw)
+	return key, nil
 }
 
 func (s *Store) Open(ctx context.Context, key string) (*Handle, error) {
