@@ -91,7 +91,11 @@ func (c *addCommand) Run() error {
 	if err != nil {
 		return err
 	}
-	targetPrefix := filepath.Join(cfg.MountPoint, vol.Name)
+	targetPrefix := cfg.SymlinkTarget
+	if targetPrefix == "" {
+		targetPrefix = cfg.MountPoint
+	}
+	targetPrefix = filepath.Join(targetPrefix, vol.Name)
 	for _, p := range c.Arguments.File {
 		if err := c.addPath(ctx, store, targetPrefix, p); err != nil {
 			return fmt.Errorf("cannot add to plop: %v", err)

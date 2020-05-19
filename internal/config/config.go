@@ -10,7 +10,10 @@ import (
 )
 
 type Config struct {
-	MountPoint    string    `hcl:"mountpoint"`
+	MountPoint string `hcl:"mountpoint"`
+	// SymlinkTarget is the prefix path added to symlinks created by `plop add`.
+	// Defaults to MountPoint.
+	SymlinkTarget string    `hcl:"symlink_target"`
 	DefaultVolume string    `hcl:"default_volume"`
 	Volumes       []*Volume `hcl:"volume,block"`
 	volumes       map[string]*Volume
@@ -54,6 +57,12 @@ func ReadConfig(p string) (*Config, error) {
 func parseConfig(cfg *Config) (*Config, error) {
 	if p := cfg.MountPoint; p == "" || !filepath.IsAbs(p) {
 		return nil, errors.New("config field mountpoint must be an absolute path")
+	}
+
+	if p := cfg.SymlinkTarget; p != "" {
+		if !filepath.IsAbs(p) {
+			return nil, errors.New("config field symlink_target must be an absolute path, if set")
+		}
 	}
 
 	if len(cfg.Volumes) == 0 {
