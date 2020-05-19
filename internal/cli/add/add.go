@@ -86,7 +86,16 @@ func (c *addCommand) Run() error {
 	if err != nil {
 		return err
 	}
+	// TODO because of the shape of the cliplop.Plop.Store API, we
+	// look up the volume twice
 	vol := cfg.GetDefaultVolume()
+	if n := c.Flags.Volume; n != "" {
+		v, ok := cfg.GetVolume(n)
+		if !ok {
+			return fmt.Errorf("volume not found: %v", n)
+		}
+		vol = v
+	}
 	store, err := cliplop.Plop.Store(c.Flags.Volume)
 	if err != nil {
 		return err
