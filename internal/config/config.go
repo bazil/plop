@@ -13,7 +13,7 @@ type Config struct {
 	MountPoint string `hcl:"mountpoint"`
 	// SymlinkTarget is the prefix path added to symlinks created by `plop add`.
 	// Defaults to MountPoint.
-	SymlinkTarget string    `hcl:"symlink_target"`
+	SymlinkTarget string    `hcl:"symlink_target,optional"`
 	DefaultVolume string    `hcl:"default_volume"`
 	Volumes       []*Volume `hcl:"volume,block"`
 	volumes       map[string]*Volume
