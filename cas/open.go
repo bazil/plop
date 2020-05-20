@@ -137,7 +137,7 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 	fn := func(i int) bool {
 		ext := r.getExtent(i)
 		off := extentOffset(ext)
-		return off >= offset
+		return off > offset
 	}
 	numExtents := len(r.handle.extents) / extentSize
 	idx := sort.Search(numExtents, fn)

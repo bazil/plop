@@ -2,6 +2,7 @@ package cas_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -183,15 +184,21 @@ func TestReadAtAcrossExtents(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 
-	buf := make([]byte, 20)
-	n, err := h.IO(ctx).ReadAt(buf, chunkSize-10)
-	if err != nil {
-		t.Fatalf("ReadAt: %v", err)
-	}
-	if n != len(buf) {
-		t.Fatalf("ReadAt returned a weird length: %d", n)
-	}
-	if g, e := string(buf), greeting[chunkSize-10:chunkSize-10+20]; g != e {
-		t.Errorf("bad content: %q != %q", g, e)
+	for offset := 0; offset < chunkSize+2; offset++ {
+		t.Run(fmt.Sprintf("@%d", offset),
+			func(t *testing.T) {
+				buf := make([]byte, 20)
+				n, err := h.IO(ctx).ReadAt(buf, int64(offset))
+				if err != nil {
+					t.Fatalf("ReadAt: %v", err)
+				}
+				if n != len(buf) {
+					t.Fatalf("ReadAt returned a weird length: %d", n)
+				}
+				if g, e := string(buf), greeting[offset:offset+20]; g != e {
+					t.Errorf("bad content: %q != %q", g, e)
+				}
+			},
+		)
 	}
 }
