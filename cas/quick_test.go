@@ -74,6 +74,11 @@ func TestQuickCompareRead(t *testing.T) {
 			off = off % (size + 1000)
 			n, err := r.ReadAt(p, off)
 			p = p[:n]
+
+			// standardize allowed variation
+			if off+int64(n) == size && err == io.EOF {
+				err = nil
+			}
 			return p, n, err
 		}
 		return fn
