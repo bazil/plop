@@ -83,8 +83,10 @@ func TestQuickCompareRead(t *testing.T) {
 	}
 	casR := h.IO(ctx)
 
-	readFn := func(r io.ReaderAt) func(p []byte, off int64) (quietBytes, int, error) {
-		fn := func(p []byte, off int64) (quietBytes, int, error) {
+	readFn := func(r io.ReaderAt) func(length uint, off int64) (quietBytes, int, error) {
+		fn := func(length uint, off int64) (quietBytes, int, error) {
+			length = length % (size + 1000)
+			p := make([]byte, length)
 			if off < 0 {
 				off = -off
 			}
