@@ -90,8 +90,15 @@ func newCipher(secret []byte) cipher.AEAD {
 	return c
 }
 
+type config struct {
+	chunkMin     uint32
+	chunkMax     uint32
+	chunkAvgBits int
+}
+
 type Store struct {
 	bucket            *blob.Bucket
+	config            config
 	nameSecret        []byte
 	hashSecret        []byte
 	nonceSecret       []byte
@@ -113,7 +120,7 @@ func blake3DeriveKeySized(context constantString, key []byte, size int) []byte {
 	return out
 }
 
-func NewStore(bucket *blob.Bucket, sharingPassphrase string) *Store {
+func NewStore(bucket *blob.Bucket, sharingPassphrase string, opts ...Option) *Store {
 	// Salt for argon2 key derivation. This is obviously not secret
 	// (and cannot be), but it does force any attackers to attack this
 	// software specifically and not rely on existing rainbow tables.
@@ -139,8 +146,14 @@ func NewStore(bucket *blob.Bucket, sharingPassphrase string) *Store {
 		// this should be very very rare
 		panic("cannot derive chunker polynomial")
 	}
+	const MiB = 1024 * 1024
 	s := &Store{
 		bucket: bucket,
+		config: config{
+			chunkMin:     4 * MiB,
+			chunkMax:     16 * MiB,
+			chunkAvgBits: 23, // 8 MiB
+		},
 		nameSecret: blake3DeriveKeySized(
 			"bazil.org/plop 2020-04-07 object name boxing",
 			sharingSecret,
@@ -158,6 +171,9 @@ func NewStore(bucket *blob.Bucket, sharingPassphrase string) *Store {
 		),
 		dataCipher:        newCipher(blobSecret),
 		chunkerPolynomial: chunkerPolynomial,
+	}
+	for _, opt := range opts {
+		opt(&s.config)
 	}
 	return s
 }
@@ -344,16 +360,10 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 
 func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 	var extents bytes.Buffer
-	const (
-		// TODO take these from config
-
-		MiB  = 1024 * 1024
-		min  = 4 * MiB
-		max  = 16 * MiB
-		bits = 23 // average 8MB
-	)
-	ch := chunker.NewWithBoundaries(r, s.chunkerPolynomial, min, max)
-	ch.SetAverageBits(bits)
+	ch := chunker.NewWithBoundaries(r, s.chunkerPolynomial,
+		// uint32 to uint is always safe
+		uint(s.config.chunkMin), uint(s.config.chunkMax))
+	ch.SetAverageBits(s.config.chunkAvgBits)
 	buf := make([]byte, 8*1024*1024)
 	extent := make([]byte, 8+32)
 	var offset uint64
