@@ -157,3 +157,41 @@ func TestReadAt(t *testing.T) {
 		t.Errorf("bad content: %q != %q", g, e)
 	}
 }
+
+func TestReadAtAcrossExtents(t *testing.T) {
+	ctx := context.Background()
+	b := memblob.OpenBucket(nil)
+	// Force an extent boundary at a known location.
+	//
+	// It seems chunker does not respect minsize < windowSize, which
+	// is 64.
+	const chunkSize = 100
+	s := cas.NewStore(b, "s3kr1t",
+		cas.WithChunkLimits(chunkSize, chunkSize),
+	)
+	greeting := strings.Repeat("hello, world\n", 10)
+	if len(greeting) < chunkSize+10 {
+		t.Fatal("test has too small content")
+	}
+	key, err := s.Create(ctx, strings.NewReader(greeting))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	h, err := s.Open(ctx, key)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	buf := make([]byte, 20)
+	n, err := h.IO(ctx).ReadAt(buf, chunkSize-10)
+	if err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if n != len(buf) {
+		t.Fatalf("ReadAt returned a weird length: %d", n)
+	}
+	if g, e := string(buf), greeting[chunkSize-10:chunkSize-10+20]; g != e {
+		t.Errorf("bad content: %q != %q", g, e)
+	}
+}

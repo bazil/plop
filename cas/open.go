@@ -145,12 +145,13 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := 0
+	extStart := int64(0)
+	if idx > 0 {
+		extStart = extentOffset(r.getExtent(idx - 1))
+	}
+	// offset inside the extent
+	off := offset - extStart
 	for len(p) > 0 && idx < numExtents {
-		extStart := int64(0)
-		if idx > 0 {
-			extStart = extentOffset(r.getExtent(idx - 1))
-		}
-		off := offset - extStart
 		hash := extentHash(r.getExtent(idx))
 		buf, err := r.handle.store.loadObject(r.ctx, prefixBlob, hash)
 		if err != nil {
@@ -163,6 +164,7 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 		p = p[nn:]
 		n += nn
 		idx++
+		off = 0
 	}
 	return n, nil
 }
