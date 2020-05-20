@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"flag"
+	"fmt"
 	"io"
 	"math/rand"
 	"testing"
@@ -46,6 +47,22 @@ func NewRandReader(seed int64) randReader {
 	return randReader{rnd}
 }
 
+type quietBytes []byte
+
+func (q quietBytes) String() string {
+	const trunc = 8
+	if len(q) < trunc {
+		return fmt.Sprintf("[%x]", []byte(q))
+	}
+	return fmt.Sprintf("[%.*x...]", trunc, []byte(q))
+}
+
+func (q quietBytes) GoString() string {
+	// need both String and GoString; fmt.Sprintf defaults to String,
+	// while testing/quick shows GoString form
+	return q.String()
+}
+
 func TestQuickCompareRead(t *testing.T) {
 	randR := NewRandReader(42)
 	const size = 10 * 1024 * 1024
@@ -66,8 +83,8 @@ func TestQuickCompareRead(t *testing.T) {
 	}
 	casR := h.IO(ctx)
 
-	readFn := func(r io.ReaderAt) func(p []byte, off int64) ([]byte, int, error) {
-		fn := func(p []byte, off int64) ([]byte, int, error) {
+	readFn := func(r io.ReaderAt) func(p []byte, off int64) (quietBytes, int, error) {
+		fn := func(p []byte, off int64) (quietBytes, int, error) {
 			if off < 0 {
 				off = -off
 			}
