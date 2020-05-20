@@ -170,6 +170,8 @@ github.com/vmihailenco/msgpack v3.3.3+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6Ac
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/zclconf/go-cty v1.2.0 h1:sPHsy7ADcIZQP3vILvTjrh74ZA175TFP5vqiNK1UmlI=
 github.com/zclconf/go-cty v1.2.0/go.mod h1:hOPWgoHbaTUnI5k4D2ld+GRpFJSCe6bCM7m1q/N4PQ8=
+github.com/zclconf/go-cty v1.4.1 h1:Xzr4m4utRDhHDifag1onwwUSq32HLoLBsp+w6tD0880=
+github.com/zclconf/go-cty v1.4.1/go.mod h1:nHzOclRkoj++EU9ZjSrZvRG0BXIWt8c7loYc0qXAFGQ=
 github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivllc1yU3BvpjYI5BUW+zglcz6QWqeVRL5t0=
 github.com/zeebo/assert v1.1.0 h1:hU1L1vLTHsnO8x8c9KAR5GmM5QscxHg5RNU5z5qbUWY=
 github.com/zeebo/assert v1.1.0/go.mod h1:Pq9JiuJQpG8JLJdtkwrJESF0Foym2/D9XMU5ciN/wJ0=

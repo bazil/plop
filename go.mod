@@ -11,6 +11,7 @@ require (
 	github.com/restic/chunker v0.3.0
 	github.com/tv42/cliutil v0.0.0-20160223044008-e775e5c0dbf2
 	github.com/tv42/zbase32 v0.0.0-20190604154422-aacc64a8f915
+	github.com/zclconf/go-cty v1.4.1
 	github.com/zeebo/blake3 v0.0.3
 	gocloud.dev v0.19.0
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37

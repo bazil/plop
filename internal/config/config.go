@@ -6,7 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"bazil.org/plop/cas"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/zclconf/go-cty/cty"
 )
 
 type Config struct {
@@ -17,6 +20,7 @@ type Config struct {
 	DefaultVolume string    `hcl:"default_volume"`
 	Volumes       []*Volume `hcl:"volume,block"`
 	volumes       map[string]*Volume
+	Chunker       *ChunkerConfig `hcl:"chunker,block"`
 }
 
 func (cfg *Config) GetDefaultVolume() *Volume {
@@ -29,18 +33,61 @@ func (cfg *Config) GetVolume(name string) (_ *Volume, ok bool) {
 }
 
 type Volume struct {
-	Name       string  `hcl:"volume,label"`
-	Passphrase string  `hcl:"passphrase"`
-	Bucket     *Bucket `hcl:"bucket,block"`
+	Name       string         `hcl:"volume,label"`
+	Passphrase string         `hcl:"passphrase"`
+	Bucket     *Bucket        `hcl:"bucket,block"`
+	Chunker    *ChunkerConfig `hcl:"chunker,block"`
 }
 
 type Bucket struct {
 	URL string `hcl:"url"`
 }
 
+type ChunkerConfig struct {
+	// hcl doesn't have convenient custom unmarshaling, so we're doing
+	// byte sizes by defining "MiB" etc variables and letting config
+	// writers multiply by them.
+	//
+	// https://github.com/hashicorp/hcl/issues/349
+
+	// these fields are uint32 because a chunk is held in RAM and the
+	// chunker library uses uint datatype.
+
+	Min uint32 `hcl:"min,optional"`
+	Max uint32 `hcl:"max,optional"`
+	// Average chunk size to aim for. Will be rounded to the nearest
+	// power of two.
+	Average uint32 `hcl:"average,optional"`
+}
+
+// CASOptions returns the cas.Option values that enact this
+// configuration. It is safe to call on nil values.
+func (c *ChunkerConfig) CASOptions() []cas.Option {
+	if c == nil {
+		return nil
+	}
+	opts := []cas.Option{
+		// rely on the options themselves to handle zero values
+		cas.WithChunkLimits(c.Min, c.Max),
+		cas.WithChunkGoal(c.Average),
+	}
+	return opts
+}
+
+var evalCtx = &hcl.EvalContext{
+	Variables: map[string]cty.Value{
+		"KiB": cty.NumberUIntVal(1024),
+		"MiB": cty.NumberUIntVal(1024 * 1024),
+		"GiB": cty.NumberUIntVal(1024 * 1024 * 1024),
+		"kB":  cty.NumberUIntVal(1000),
+		"MB":  cty.NumberUIntVal(1000 * 1000),
+		"GB":  cty.NumberUIntVal(1000 * 1000 * 1000),
+	},
+}
+
 func ParseConfig(filename string, src []byte) (*Config, error) {
 	var cfg Config
-	if err := hclsimple.Decode(filename, src, nil, &cfg); err != nil {
+	if err := hclsimple.Decode(filename, src, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
 	return parseConfig(&cfg)
@@ -48,7 +95,7 @@ func ParseConfig(filename string, src []byte) (*Config, error) {
 
 func ReadConfig(p string) (*Config, error) {
 	var cfg Config
-	if err := hclsimple.DecodeFile(p, nil, &cfg); err != nil {
+	if err := hclsimple.DecodeFile(p, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
 	return parseConfig(&cfg)

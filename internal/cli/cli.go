@@ -74,7 +74,10 @@ func (p *plop) Store(volumeName string) (*cas.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	store := cas.NewStore(bucket, vol.Passphrase)
+	var opts []cas.Option
+	opts = append(opts, cfg.Chunker.CASOptions()...)
+	opts = append(opts, vol.Chunker.CASOptions()...)
+	store := cas.NewStore(bucket, vol.Passphrase, opts...)
 	return store, nil
 }
 
