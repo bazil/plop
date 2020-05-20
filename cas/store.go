@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"cloud.google.com/go/storage"
 	"github.com/klauspost/compress/zstd"
@@ -288,6 +289,9 @@ func (s *Store) _downloadFromBackendV0(prefix constantString, br *blob.Reader) (
 	return buf.Bytes(), nil
 }
 
+// not using Pool.New because zstd.NewWriter can return an error
+var zstdEncoders sync.Pool
+
 func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext []byte) (key []byte, boxedKey string, _ error) {
 	hash := s.hashData(prefix, plaintext)
 	nonce := s.nonce(hash)
@@ -296,11 +300,17 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 	_, _ = zbuf.WriteString(string(prefix))
 	// not using EncodeAll because our data might be big enough to
 	// benefit from parallelism
-	zw, err := zstd.NewWriter(&zbuf,
-		zstd.WithEncoderPadding(32),
-	)
-	if err != nil {
-		return nil, "", fmt.Errorf("zstd error: %w", err)
+	zw, ok := zstdEncoders.Get().(*zstd.Encoder)
+	if ok {
+		zw.Reset(&zbuf)
+	} else {
+		tmp, err := zstd.NewWriter(&zbuf,
+			zstd.WithEncoderPadding(32),
+		)
+		if err != nil {
+			return nil, "", fmt.Errorf("zstd error: %w", err)
+		}
+		zw = tmp
 	}
 	if _, err := zw.Write(plaintext); err != nil {
 		return nil, "", fmt.Errorf("zstd write: %w", err)
@@ -308,6 +318,7 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 	if err := zw.Close(); err != nil {
 		return nil, "", fmt.Errorf("zstd close: %w", err)
 	}
+	zstdEncoders.Put(zw)
 	compressed := zbuf.Bytes()
 	ciphertext := s.dataCipher.Seal(compressed[:0], nonce, compressed, hash)
 
