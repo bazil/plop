@@ -296,7 +296,9 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 	_, _ = zbuf.WriteString(string(prefix))
 	// not using EncodeAll because our data might be big enough to
 	// benefit from parallelism
-	zw, err := zstd.NewWriter(&zbuf)
+	zw, err := zstd.NewWriter(&zbuf,
+		zstd.WithEncoderPadding(32),
+	)
 	if err != nil {
 		return nil, "", fmt.Errorf("zstd error: %w", err)
 	}
