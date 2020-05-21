@@ -159,6 +159,38 @@ func TestReadAt(t *testing.T) {
 	}
 }
 
+func TestReadAtPastEOF(t *testing.T) {
+	ctx := context.Background()
+	b := memblob.OpenBucket(nil)
+	s := cas.NewStore(b, "s3kr1t")
+	const greeting = "hello, world\n"
+	key, err := s.Create(ctx, strings.NewReader(greeting))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	h, err := s.Open(ctx, key)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	buf := make([]byte, 10)
+	const (
+		tail   = 4
+		offset = int64(len(greeting)) - tail
+	)
+	n, err := h.IO(ctx).ReadAt(buf, offset)
+	if err != io.EOF {
+		t.Fatalf("bad error: %v", err)
+	}
+	if n != tail {
+		t.Fatalf("ReadAt returned a weird length: %d", n)
+	}
+	if g, e := string(buf[:n]), greeting[offset:]; g != e {
+		t.Errorf("bad content: %q != %q", g, e)
+	}
+}
+
 func TestReadAtAcrossExtents(t *testing.T) {
 	ctx := context.Background()
 	b := memblob.OpenBucket(nil)

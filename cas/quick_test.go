@@ -98,11 +98,6 @@ func TestQuickCompareRead(t *testing.T) {
 			n, err := r.ReadAt(p, off)
 			q := quietBytes(p[:n])
 			t.Logf("ReadAt %d @%d -> %v %v", length, off, q, err)
-
-			// standardize allowed variation
-			if off+int64(n) == size && err == io.EOF {
-				err = nil
-			}
 			return q, n, err
 		}
 		return fn
