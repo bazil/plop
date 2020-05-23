@@ -272,11 +272,11 @@ func (s *Store) downloadFromBackend(ctx context.Context, boxedKey string, prefix
 		return nil, err
 
 	case contentTypeV1:
-		return s._downloadFromBackendV0(prefix, br)
+		return s._downloadFromBackendV1(prefix, br)
 	}
 }
 
-func (s *Store) _downloadFromBackendV0(prefix constantString, br *blob.Reader) ([]byte, error) {
+func (s *Store) _downloadFromBackendV1(prefix constantString, br *blob.Reader) ([]byte, error) {
 	size := br.Size()
 	const maxInt = int(^uint(0) >> 1)
 	if size > int64(maxInt) {
