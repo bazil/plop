@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
+	"github.com/dgryski/go-s4lru"
 	"github.com/klauspost/compress/zstd"
 	"github.com/restic/chunker"
 	"github.com/tv42/zbase32"
@@ -105,6 +106,9 @@ type Store struct {
 	nonceSecret       []byte
 	dataCipher        cipher.AEAD
 	chunkerPolynomial chunker.Pol
+
+	cacheMu sync.Mutex
+	cache   *s4lru.Cache
 }
 
 func mustBlake3NewKeyed(key []byte) *blake3.Hasher {
@@ -172,6 +176,24 @@ func NewStore(bucket *blob.Bucket, sharingPassphrase string, opts ...Option) *St
 		),
 		dataCipher:        newCipher(blobSecret),
 		chunkerPolynomial: chunkerPolynomial,
+
+		// Cache objects are typically ~8MB, so keep it small. All we
+		// need is to serve smaller-than-extent reads concurrently for
+		// a couple of different streams.
+		//
+		// Ideally, cache size should configured in bytes and we
+		// should adjust number of items based on average chunk size
+		// (which we technically don't know up front; goal varies by
+		// volume and blobs may have been written with different
+		// tunables).
+		//
+		// Also note there are multiple Stores open; this should
+		// probably be shared (not sure if intermingling keys is a
+		// good idea; maybe switch key from string to struct, with
+		// Store pointer).
+		//
+		// Must be divisible by 4.
+		cache: s4lru.New(4 * 10),
 	}
 	for _, opt := range opts {
 		opt(&s.config)

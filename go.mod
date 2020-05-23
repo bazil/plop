@@ -5,6 +5,7 @@ go 1.14
 require (
 	bazil.org/fuse v0.0.0-20200430160008-602fc2ff4a00
 	cloud.google.com/go v0.44.3
+	github.com/dgryski/go-s4lru v0.0.0-20150401095600-fd9b33c61bfe
 	github.com/dvyukov/go-fuzz v0.0.0-20200318091601-be3528f3a813
 	github.com/hashicorp/hcl/v2 v2.5.1
 	github.com/klauspost/compress v1.10.3
