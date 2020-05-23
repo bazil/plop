@@ -63,9 +63,9 @@ type Reader struct {
 	handle *Handle
 	ctx    context.Context
 
-	extentAt     int
-	extentBuf    []byte
-	extentOffset int
+	// current offset for Read calls, updated in a non-goroutine safe
+	// way; Read must not be called concurrently
+	readOffset int64
 }
 
 // getExtent returns the binary data for extent at idx.
@@ -90,14 +90,6 @@ func extentHash(extent []byte) []byte {
 	return h
 }
 
-func (r *Reader) getExtentHashAt(byteOffset int) (hash []byte, ok bool) {
-	if byteOffset > len(r.handle.extents)-extentSize {
-		return nil, false
-	}
-	h := r.handle.extents[byteOffset+8 : byteOffset+8+dataHashSize]
-	return h, true
-}
-
 var _ io.Reader = (*Reader)(nil)
 
 func (r *Reader) Read(p []byte) (int, error) {
@@ -105,27 +97,9 @@ func (r *Reader) Read(p []byte) (int, error) {
 		return 0, err
 	}
 
-	hash, ok := r.getExtentHashAt(r.extentAt)
-	if !ok {
-		return 0, io.EOF
-	}
-	if r.extentBuf == nil {
-		buf, err := r.handle.store.loadObject(r.ctx, prefixBlob, hash)
-		if err != nil {
-			return 0, err
-		}
-		r.extentBuf = buf
-	}
-	buf := r.extentBuf[r.extentOffset:]
-	n := copy(p, buf)
-	if n == len(buf) {
-		r.extentAt += extentSize
-		r.extentBuf = nil
-		r.extentOffset = 0
-	} else {
-		r.extentOffset += n
-	}
-	return n, nil
+	n, err := r.ReadAt(p, r.readOffset)
+	r.readOffset += int64(n)
+	return n, err
 }
 
 var _ io.ReaderAt = (*Reader)(nil)
