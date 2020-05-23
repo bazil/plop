@@ -65,15 +65,15 @@ func (q quietBytes) GoString() string {
 
 func TestQuickCompareRead(t *testing.T) {
 	randR := NewRandReader(42)
-	const size = 10 * 1024 * 1024
+	const size = 1 * 1024 * 1024
 	buf := make([]byte, size)
 	randR.Read(buf)
 
 	b := memblob.OpenBucket(nil)
 	s := cas.NewStore(b, "s3kr1t",
 		// cause extent crossings to happen
-		cas.WithChunkLimits(size/10000, size/1000),
-		cas.WithChunkGoal(size/5000),
+		cas.WithChunkLimits(size/100, size/10),
+		cas.WithChunkGoal(size/50),
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
