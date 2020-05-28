@@ -90,7 +90,10 @@ func ParseConfig(filename string, src []byte) (*Config, error) {
 	if err := hclsimple.Decode(filename, src, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
-	return parseConfig(&cfg)
+	if err := parseConfig(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 func ReadConfig(p string) (*Config, error) {
@@ -98,50 +101,62 @@ func ReadConfig(p string) (*Config, error) {
 	if err := hclsimple.DecodeFile(p, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
-	return parseConfig(&cfg)
+	// fold in any local config; TODO flag to disable?
+	local, err := ReadLocalConfig()
+	if err != nil {
+		return nil, err
+	}
+	if n := local.DefaultVolume; n != "" {
+		cfg.DefaultVolume = n
+	}
+
+	if err := parseConfig(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
-func parseConfig(cfg *Config) (*Config, error) {
+func parseConfig(cfg *Config) error {
 	if p := cfg.MountPoint; p == "" || !filepath.IsAbs(p) {
-		return nil, errors.New("config field mountpoint must be an absolute path")
+		return errors.New("config field mountpoint must be an absolute path")
 	}
 
 	if p := cfg.SymlinkTarget; p != "" {
 		if !filepath.IsAbs(p) {
-			return nil, errors.New("config field symlink_target must be an absolute path, if set")
+			return errors.New("config field symlink_target must be an absolute path, if set")
 		}
 	}
 
 	if len(cfg.Volumes) == 0 {
-		return nil, errors.New("must have at least one volume")
+		return errors.New("must have at least one volume")
 	}
 
 	cfg.volumes = make(map[string]*Volume, len(cfg.Volumes))
 	for _, vol := range cfg.Volumes {
 		if _, found := cfg.volumes[vol.Name]; found {
-			return nil, fmt.Errorf("duplicate volume: %q", vol.Name)
+			return fmt.Errorf("duplicate volume: %q", vol.Name)
 		}
 		cfg.volumes[vol.Name] = vol
 	}
 
 	if _, ok := cfg.volumes[cfg.DefaultVolume]; !ok {
-		return nil, fmt.Errorf("default volume %q not found", cfg.DefaultVolume)
+		return fmt.Errorf("default volume %q not found", cfg.DefaultVolume)
 	}
 
 	for _, vol := range cfg.Volumes {
 		if strings.ContainsAny(vol.Name, "/\x00") {
-			return nil, fmt.Errorf("config field volume %q name must not contain slashes or zero bytes", vol.Name)
+			return fmt.Errorf("config field volume %q name must not contain slashes or zero bytes", vol.Name)
 		}
 		if vol.Passphrase == "" {
-			return nil, fmt.Errorf("config field volume %q passphrase must be set", vol.Name)
+			return fmt.Errorf("config field volume %q passphrase must be set", vol.Name)
 		}
 		if vol.Bucket == nil {
-			return nil, fmt.Errorf("config block volume %q bucket must be present", vol.Name)
+			return fmt.Errorf("config block volume %q bucket must be present", vol.Name)
 		}
 		if vol.Bucket.URL == "" {
-			return nil, errors.New("config field Bucket must be set")
+			return errors.New("config field Bucket must be set")
 		}
 	}
 
-	return cfg, nil
+	return nil
 }

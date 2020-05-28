@@ -16,6 +16,7 @@ require (
 	github.com/zeebo/blake3 v0.0.3
 	gocloud.dev v0.19.0
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
+	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/tools v0.0.0-20200423201157-2723c5de0d66
 	google.golang.org/grpc v1.26.0 // indirect
 )
