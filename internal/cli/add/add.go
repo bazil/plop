@@ -12,6 +12,7 @@ import (
 
 	"bazil.org/plop/cas"
 	cliplop "bazil.org/plop/internal/cli"
+	"bazil.org/plop/internal/config"
 	"github.com/tv42/cliutil/subcommands"
 )
 
@@ -88,7 +89,7 @@ func (c *addCommand) Run() error {
 	}
 	// TODO because of the shape of the cliplop.Plop.Store API, we
 	// look up the volume twice
-	vol := cfg.GetDefaultVolume()
+	var vol *config.Volume
 	if n := c.Flags.Volume; n != "" {
 		v, ok := cfg.GetVolume(n)
 		if !ok {
@@ -96,6 +97,14 @@ func (c *addCommand) Run() error {
 		}
 		vol = v
 	}
+	if vol == nil {
+		v, err := cfg.GetDefaultVolume()
+		if err != nil {
+			return err
+		}
+		vol = v
+	}
+
 	store, err := cliplop.Plop.Store(c.Flags.Volume)
 	if err != nil {
 		return err

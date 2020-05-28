@@ -17,14 +17,18 @@ type Config struct {
 	// SymlinkTarget is the prefix path added to symlinks created by `plop add`.
 	// Defaults to MountPoint.
 	SymlinkTarget string    `hcl:"symlink_target,optional"`
-	DefaultVolume string    `hcl:"default_volume"`
+	DefaultVolume string    `hcl:"default_volume,optional"`
 	Volumes       []*Volume `hcl:"volume,block"`
 	volumes       map[string]*Volume
 	Chunker       *ChunkerConfig `hcl:"chunker,block"`
 }
 
-func (cfg *Config) GetDefaultVolume() *Volume {
-	return cfg.volumes[cfg.DefaultVolume]
+func (cfg *Config) GetDefaultVolume() (*Volume, error) {
+	if cfg.DefaultVolume == "" {
+		return nil, errors.New("default volume not set")
+	}
+	vol := cfg.volumes[cfg.DefaultVolume]
+	return vol, nil
 }
 
 func (cfg *Config) GetVolume(name string) (_ *Volume, ok bool) {
@@ -139,8 +143,10 @@ func parseConfig(cfg *Config) error {
 		cfg.volumes[vol.Name] = vol
 	}
 
-	if _, ok := cfg.volumes[cfg.DefaultVolume]; !ok {
-		return fmt.Errorf("default volume %q not found", cfg.DefaultVolume)
+	if n := cfg.DefaultVolume; n != "" {
+		if _, ok := cfg.volumes[n]; !ok {
+			return fmt.Errorf("default volume %q not found", n)
+		}
 	}
 
 	for _, vol := range cfg.Volumes {

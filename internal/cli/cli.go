@@ -62,7 +62,7 @@ func (p *plop) Store(volumeName string) (*cas.Store, error) {
 		return nil, err
 	}
 	ctx := context.TODO()
-	vol := cfg.GetDefaultVolume()
+	var vol *config.Volume
 	if volumeName != "" {
 		v, ok := cfg.GetVolume(volumeName)
 		if !ok {
@@ -70,6 +70,14 @@ func (p *plop) Store(volumeName string) (*cas.Store, error) {
 		}
 		vol = v
 	}
+	if vol == nil {
+		v, err := cfg.GetDefaultVolume()
+		if err != nil {
+			return nil, err
+		}
+		vol = v
+	}
+
 	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
 	if err != nil {
 		return nil, err
