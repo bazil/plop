@@ -19,7 +19,13 @@ var _ = fs.Handle(&File{})
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Mode = 0o444
-	a.Size = uint64(f.handle.Size())
+	size := uint64(f.handle.Size())
+	a.Size = size
+	const blockSize = 512
+	// Block count is a lie (because of deduplication compression
+	// etc), but it's a convenient lie and we have no reasonable way
+	// to provide the honest answer.
+	a.Blocks = (size + (blockSize - 1)) / blockSize
 	a.Valid = 24 * time.Hour
 	return nil
 }

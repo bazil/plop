@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
@@ -41,9 +42,10 @@ func withMount(t testing.TB, configText string, fn func(mntpath string)) {
 }
 
 type fileInfo struct {
-	name string
-	size int64
-	mode os.FileMode
+	name   string
+	size   int64
+	mode   os.FileMode
+	blocks int64
 }
 
 func checkFI(t testing.TB, got os.FileInfo, expected fileInfo) {
@@ -55,6 +57,10 @@ func checkFI(t testing.TB, got os.FileInfo, expected fileInfo) {
 	}
 	if g, e := got.Mode(), expected.mode; g != e {
 		t.Errorf("file info has bad mode: %v != %v", g, e)
+	}
+	st := got.Sys().(*syscall.Stat_t)
+	if g, e := st.Blocks, expected.blocks; g != e {
+		t.Errorf("file info has bad block count: %v != %v", g, e)
 	}
 }
 
@@ -173,9 +179,10 @@ volume "testvolume" {
 				t.Fatal(err)
 			}
 			checkFI(t, fi, fileInfo{
-				name: key,
-				size: int64(len(greeting)),
-				mode: 0o444,
+				name:   key,
+				size:   int64(len(greeting)),
+				mode:   0o444,
+				blocks: 1,
 			})
 		}
 	})
