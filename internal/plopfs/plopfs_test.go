@@ -121,6 +121,15 @@ volume "testvolume" {
 
 func TestStat(t *testing.T) {
 	tmp := tempDir(t)
+	bucket, err := fileblob.OpenBucket(tmp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bucket.Close()
+	store := cas.NewStore(bucket, "s3kr1t")
+	const greeting = "hello, world\n"
+	key := mustWriteBlob(t, store, []byte(greeting))
+
 	config := fmt.Sprintf(`
 mountpoint = "/does-not-exist"
 default_volume = "testvolume"
@@ -154,6 +163,19 @@ volume "testvolume" {
 			checkFI(t, fi, fileInfo{
 				name: "testvolume",
 				mode: os.ModeDir | 0o555,
+			})
+		}
+
+		{
+			// blob
+			fi, err := os.Stat(filepath.Join(mntpath, "testvolume", key))
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkFI(t, fi, fileInfo{
+				name: key,
+				size: int64(len(greeting)),
+				mode: 0o444,
 			})
 		}
 	})
