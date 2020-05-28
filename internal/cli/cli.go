@@ -54,35 +54,44 @@ func (p *plop) Config() (*config.Config, error) {
 	return config.ReadConfig(p.Flags.Config)
 }
 
-// Store returns the CAS store for the given volume name. If volume
-// name is the empty string, default volume will be used.
-func (p *plop) Store(volumeName string) (*cas.Store, error) {
+// Volume returns the volume by the given name. If volume name is the
+// empty string, default volume will be used.
+func (p *plop) Volume(volumeName string) (*config.Volume, error) {
 	cfg, err := p.Config()
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.TODO()
-	var vol *config.Volume
 	if volumeName != "" {
-		v, ok := cfg.GetVolume(volumeName)
+		vol, ok := cfg.GetVolume(volumeName)
 		if !ok {
 			return nil, fmt.Errorf("no such volume: %q", volumeName)
 		}
-		vol = v
+		return vol, nil
 	}
-	if vol == nil {
-		v, err := cfg.GetDefaultVolume()
-		if err != nil {
-			return nil, err
-		}
-		vol = v
+	vol, err := cfg.GetDefaultVolume()
+	if err != nil {
+		return nil, err
 	}
+	return vol, nil
+}
 
+// Store returns the CAS store for the given volume name. If volume
+// name is the empty string, default volume will be used.
+func (p *plop) Store(volumeName string) (*cas.Store, error) {
+	ctx := context.TODO()
+	vol, err := p.Volume(volumeName)
+	if err != nil {
+		return nil, err
+	}
 	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
 	if err != nil {
 		return nil, err
 	}
 	var opts []cas.Option
+	cfg, err := p.Config()
+	if err != nil {
+		return nil, err
+	}
 	opts = append(opts, cfg.Chunker.CASOptions()...)
 	opts = append(opts, vol.Chunker.CASOptions()...)
 	store := cas.NewStore(bucket, vol.Passphrase, opts...)
