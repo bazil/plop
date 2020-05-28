@@ -20,6 +20,7 @@ type Volume struct {
 var _ = fs.Node(&Volume{})
 
 func (v *Volume) Attr(ctx context.Context, a *fuse.Attr) error {
+	a.Valid = forever
 	a.Mode = os.ModeDir | 0o555
 	return nil
 }

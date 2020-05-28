@@ -16,6 +16,7 @@ type Root struct {
 var _ = fs.Node(&Root{})
 
 func (r *Root) Attr(ctx context.Context, a *fuse.Attr) error {
+	a.Valid = forever
 	a.Mode = os.ModeDir | 0o555
 	return nil
 }

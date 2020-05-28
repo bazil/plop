@@ -3,7 +3,6 @@ package plopfs
 import (
 	"context"
 	"io"
-	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -18,6 +17,7 @@ var _ = fs.Node(&File{})
 var _ = fs.Handle(&File{})
 
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
+	a.Valid = forever
 	a.Mode = 0o444
 	size := uint64(f.handle.Size())
 	a.Size = size
@@ -26,7 +26,6 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	// etc), but it's a convenient lie and we have no reasonable way
 	// to provide the honest answer.
 	a.Blocks = (size + (blockSize - 1)) / blockSize
-	a.Valid = 24 * time.Hour
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -12,6 +13,10 @@ import (
 	"bazil.org/plop/internal/config"
 	"gocloud.dev/blob"
 )
+
+// an easily-recognizable number that essentially disables
+// time-based expiration
+const forever = 1000000 * time.Hour
 
 type PlopFS struct {
 	volumes map[string]*cas.Store
