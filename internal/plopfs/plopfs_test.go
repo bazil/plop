@@ -114,7 +114,7 @@ volume "testvolume" {
 		}
 		checkFI(t, fis[0], fileInfo{
 			name: "testvolume",
-			mode: os.ModeDir | 0555,
+			mode: os.ModeDir | 0o555,
 		})
 	})
 }
@@ -141,7 +141,7 @@ volume "testvolume" {
 			}
 			checkFI(t, fi, fileInfo{
 				name: fi.Name(), // random tempdir name
-				mode: os.ModeDir | 0555,
+				mode: os.ModeDir | 0o555,
 			})
 		}
 
@@ -153,7 +153,7 @@ volume "testvolume" {
 			}
 			checkFI(t, fi, fileInfo{
 				name: "testvolume",
-				mode: os.ModeDir | 0555,
+				mode: os.ModeDir | 0o555,
 			})
 		}
 	})
@@ -237,7 +237,7 @@ volume "testvolume" {
 		if err != nil {
 			t.Errorf("Stat: %v", err)
 		}
-		checkFI(t, fi, fileInfo{name: key, size: int64(len(greeting)), mode: 0444})
+		checkFI(t, fi, fileInfo{name: key, size: int64(len(greeting)), mode: 0o444})
 
 		data, err := ioutil.ReadAll(f)
 		if err != nil {
