@@ -86,14 +86,11 @@ func (c *addCommand) Run() error {
 	if err != nil {
 		return err
 	}
-	// TODO because of the shape of the cliplop.Plop.Store API, we
-	// look up the volume twice
 	vol, err := cliplop.Plop.Volume(c.Flags.Volume)
 	if err != nil {
 		return err
 	}
-
-	store, err := cliplop.Plop.Store(c.Flags.Volume)
+	store, err := cliplop.Plop.Store(vol)
 	if err != nil {
 		return err
 	}

@@ -16,8 +16,6 @@ func (c *mountCommand) Run() error {
 		return err
 	}
 	// TODO `plop -debug mount` should enable fuse debug log
-
-	// TODO unify the config usage plopfs.Mount vs cliplop.Plop.Store
 	if err := plopfs.Mount(cfg); err != nil {
 		return err
 	}

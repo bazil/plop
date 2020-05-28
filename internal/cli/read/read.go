@@ -36,7 +36,11 @@ func (c *readCommand) readKey(ctx context.Context, store *cas.Store, k string, w
 
 func (c *readCommand) Run() error {
 	ctx := context.TODO()
-	store, err := cliplop.Plop.Store(c.Flags.Volume)
+	vol, err := cliplop.Plop.Volume(c.Flags.Volume)
+	if err != nil {
+		return err
+	}
+	store, err := cliplop.Plop.Store(vol)
 	if err != nil {
 		return err
 	}

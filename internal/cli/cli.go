@@ -75,14 +75,9 @@ func (p *plop) Volume(volumeName string) (*config.Volume, error) {
 	return vol, nil
 }
 
-// Store returns the CAS store for the given volume name. If volume
-// name is the empty string, default volume will be used.
-func (p *plop) Store(volumeName string) (*cas.Store, error) {
+// Store returns the CAS store for the given volume.
+func (p *plop) Store(vol *config.Volume) (*cas.Store, error) {
 	ctx := context.TODO()
-	vol, err := p.Volume(volumeName)
-	if err != nil {
-		return nil, err
-	}
 	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
 	if err != nil {
 		return nil, err
