@@ -32,6 +32,7 @@ func (r *Root) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.L
 		fs:    r.fs,
 		store: store,
 	}
+	resp.EntryValid = forever
 	return n, nil
 }
 
