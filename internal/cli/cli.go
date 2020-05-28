@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"sync"
 
 	"bazil.org/plop/cas"
 	"bazil.org/plop/internal/config"
@@ -23,6 +24,10 @@ type plop struct {
 		Config     string
 		CPUProfile string
 	}
+
+	configOnce sync.Once
+	config     *config.Config
+	configErr  error
 }
 
 var _ Service = (*plop)(nil)
@@ -50,8 +55,13 @@ func (p *plop) Teardown() (ok bool) {
 	return true
 }
 
+func (p *plop) initConfig() {
+	p.config, p.configErr = config.ReadConfig(p.Flags.Config)
+}
+
 func (p *plop) Config() (*config.Config, error) {
-	return config.ReadConfig(p.Flags.Config)
+	p.configOnce.Do(p.initConfig)
+	return p.config, p.configErr
 }
 
 // Volume returns the volume by the given name. If volume name is the
