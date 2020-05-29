@@ -13,6 +13,7 @@ import (
 	"bazil.org/plop/cas"
 	cliplop "bazil.org/plop/internal/cli"
 	"github.com/tv42/cliutil/subcommands"
+	"golang.org/x/sys/unix"
 )
 
 type addCommand struct {
@@ -64,6 +65,40 @@ func replaceWithSymlink(target, path string) error {
 }
 
 func (c *addCommand) addPath(ctx context.Context, store *cas.Store, targetPrefix string, p string) error {
+	target, err := os.Readlink(p)
+	if err != nil {
+		if errors.Is(err, unix.EINVAL) {
+			// it's not a symlink
+			return c.addRegularFile(ctx, store, targetPrefix, p)
+		}
+		// error from readlink
+		return err
+	}
+
+	// check if it's a plop symlink, to this same volume
+	if dir, file := filepath.Split(target); dir == targetPrefix+"/" && file != "" && filepath.Ext(file) == "" {
+		// It's been added already.
+		//
+		// Note that filepath.Split leaves a trailing slash in place.
+		//
+		// Ensuring file name is not empty rules out links to the
+		// volume directory.
+		//
+		// Ensuring file has no extension rules out symlinks to any
+		// non-content data the filesystem might expose in the future,
+		// e.g. metadata on extents.
+		//
+		// We could parse the filename zbase32 too, but that seems
+		// brittle and unnecessary; now we have a path to other name
+		// formats.
+		return nil
+	}
+
+	// not a recognized or acceptable symlink; do add
+	return c.addRegularFile(ctx, store, targetPrefix, p)
+}
+
+func (c *addCommand) addRegularFile(ctx context.Context, store *cas.Store, targetPrefix string, p string) error {
 	f, err := os.Open(p)
 	if err != nil {
 		return err
