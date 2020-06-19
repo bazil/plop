@@ -127,7 +127,7 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 		p = p[nn:]
 		n += nn
 		if len(p) == 0 {
-			return n, nil
+			break
 		}
 		off = 0
 		next, ok := ext.Next()
