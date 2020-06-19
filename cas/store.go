@@ -482,3 +482,16 @@ func (s *Store) DebugReadBlob(ctx context.Context, blobKey string) ([]byte, erro
 	}
 	return buf, nil
 }
+
+func (s *Store) DebugBoxKey(key string) (string, error) {
+	hash, err := zbase32.DecodeString(key)
+	if err != nil {
+		return "", ErrBadKey
+	}
+	if len(hash) != dataHashSize {
+		return "", ErrBadKey
+	}
+	boxed := s.boxKey(hash)
+	boxedKey := zbase32.EncodeToString(boxed)
+	return boxedKey, nil
+}

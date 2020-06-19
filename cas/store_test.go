@@ -328,3 +328,16 @@ func TestDebugReadBlob(t *testing.T) {
 		t.Errorf("bad content: %q != %q", g, e)
 	}
 }
+
+func TestDebugBoxKey(t *testing.T) {
+	b := memblob.OpenBucket(nil)
+	s := cas.NewStore(b, "s3kr1t")
+	const key = "s4wfu6c18bh6ahfjgirpsqp7zmr6pg18d9rho7rrgzpkqonsz8jy"
+	boxed, err := s.DebugBoxKey(key)
+	if err != nil {
+		t.Fatalf("DebugBoxKey: %v", err)
+	}
+	if g, e := boxed, "1kw7n9191hmkx5ywk6g8us6oqt1drtptb97orgw69a46seoqmuhy"; g != e {
+		t.Errorf("bad boxed key: %q != %q", g, e)
+	}
+}
