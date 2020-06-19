@@ -49,6 +49,7 @@ type fileInfo struct {
 }
 
 func checkFI(t testing.TB, got os.FileInfo, expected fileInfo) {
+	t.Helper()
 	if g, e := got.Name(), expected.name; g != e {
 		t.Errorf("file info has bad name: %q != %q", g, e)
 	}
