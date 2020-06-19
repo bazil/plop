@@ -108,7 +108,7 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
 	}
-	ext, err := r.extentAt(offset)
+	ext, err := r.ExtentAt(offset)
 	if err != nil {
 		return 0, err
 	}
@@ -139,12 +139,12 @@ func (r *Reader) ReadAt(p []byte, offset int64) (int, error) {
 	return n, nil
 }
 
-// extentAt returns the extent containing offset, or io.EOF if offset
+// ExtentAt returns the extent containing offset, or io.EOF if offset
 // is outside of stored data.
 //
 // Note that the extent starting offset can be (and typically is)
 // before the requested offset.
-func (r *Reader) extentAt(offset int64) (*extent, error) {
+func (r *Reader) ExtentAt(offset int64) (*Extent, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -158,19 +158,19 @@ func (r *Reader) extentAt(offset int64) (*extent, error) {
 	if idx == numExtents {
 		return nil, io.EOF
 	}
-	ext := &extent{
+	ext := &Extent{
 		reader: r,
 		idx:    idx,
 	}
 	return ext, nil
 }
 
-type extent struct {
+type Extent struct {
 	reader *Reader
 	idx    int
 }
 
-func (e *extent) Start() int64 {
+func (e *Extent) Start() int64 {
 	if e.idx == 0 {
 		return 0
 	}
@@ -179,7 +179,7 @@ func (e *extent) Start() int64 {
 	return extentOffset(prev)
 }
 
-func (e *extent) Bytes() ([]byte, error) {
+func (e *Extent) Bytes() ([]byte, error) {
 	hash := extentHash(e.reader.getExtent(e.idx))
 	cacheKey := string(hash)
 	e.reader.handle.store.cacheMu.Lock()
@@ -202,13 +202,13 @@ func (e *extent) Bytes() ([]byte, error) {
 	return buf, nil
 }
 
-func (e *extent) Next() (_ *extent, ok bool) {
+func (e *Extent) Next() (_ *Extent, ok bool) {
 	idx := e.idx + 1
 	numExtents := len(e.reader.handle.extents) / extentSize
 	if idx == numExtents {
 		return nil, false
 	}
-	ext := &extent{
+	ext := &Extent{
 		reader: e.reader,
 		idx:    idx,
 	}

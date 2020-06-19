@@ -44,6 +44,21 @@ func checkBucket(t testing.TB, bucket *blob.Bucket, want ...string) {
 	}
 }
 
+func checkExtent(t testing.TB, ext *cas.Extent, start int64, content string) {
+	t.Helper()
+	if g, e := ext.Start(), start; g != e {
+		t.Errorf("bad extent start: %d != %d", g, e)
+	}
+	buf, err := ext.Bytes()
+	if err != nil {
+		t.Errorf("error reading extent content: %v", err)
+		return
+	}
+	if g, e := string(buf), content; g != e {
+		t.Errorf("bad extent content: %q != %q", g, e)
+	}
+}
+
 func TestRoundtrip(t *testing.T) {
 	b := memblob.OpenBucket(nil)
 	s := cas.NewStore(b, "s3kr1t")
@@ -156,6 +171,49 @@ func TestReadAt(t *testing.T) {
 	}
 	if g, e := string(buf), greeting[4:4+3]; g != e {
 		t.Errorf("bad content: %q != %q", g, e)
+	}
+}
+
+func TestExtentAt(t *testing.T) {
+	ctx := context.Background()
+	b := memblob.OpenBucket(nil)
+	// Force an extent boundary at a known location.
+	//
+	// It seems chunker does not respect minsize < windowSize, which
+	// is 64.
+	const chunkSize = 100
+	s := cas.NewStore(b, "s3kr1t",
+		cas.WithChunkLimits(chunkSize, chunkSize),
+	)
+	greeting := strings.Repeat("hello, world\n", 10)
+	if len(greeting) < chunkSize+10 {
+		t.Fatal("test has too small content")
+	}
+	key, err := s.Create(ctx, strings.NewReader(greeting))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	h, err := s.Open(ctx, key)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	r := h.IO(ctx)
+	ext, err := r.ExtentAt(4)
+	if err != nil {
+		t.Fatalf("ExtentAt: %v", err)
+	}
+	checkExtent(t, ext, 0, greeting[:chunkSize])
+
+	ext2, ok := ext.Next()
+	if !ok {
+		t.Fatal("expected more extents")
+	}
+	checkExtent(t, ext2, chunkSize, greeting[chunkSize:])
+
+	if _, ok := ext2.Next(); ok {
+		t.Fatal("didn't expect this many extents")
 	}
 }
 
