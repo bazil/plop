@@ -266,7 +266,7 @@ volume "testvolume" {
 		if err != nil {
 			t.Errorf("Stat: %v", err)
 		}
-		checkFI(t, fi, fileInfo{name: key, size: int64(len(greeting)), mode: 0o444})
+		checkFI(t, fi, fileInfo{name: key, size: int64(len(greeting)), blocks: 1, mode: 0o444})
 
 		data, err := ioutil.ReadAll(f)
 		if err != nil {
