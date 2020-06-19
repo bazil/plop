@@ -54,7 +54,7 @@ func (c *readCommand) Run() error {
 }
 
 var read = readCommand{
-	Description: "read objects to plop",
+	Description: "read objects from plop",
 }
 
 func init() {
