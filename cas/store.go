@@ -393,6 +393,28 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 	return zbuf.Bytes(), nil
 }
 
+func (s *Store) loadObjectCached(ctx context.Context, prefix constantString, hash []byte) ([]byte, error) {
+	cacheKey := string(hash)
+	s.cacheMu.Lock()
+	cache, ok := s.cache.Get(cacheKey)
+	s.cacheMu.Unlock()
+	if ok {
+		// cache hit
+		buf := cache.([]byte)
+		return buf, nil
+	}
+
+	// cache miss
+	buf, err := s.loadObject(ctx, prefix, hash)
+	if err != nil {
+		return nil, err
+	}
+	s.cacheMu.Lock()
+	s.cache.Set(cacheKey, buf)
+	s.cacheMu.Unlock()
+	return buf, nil
+}
+
 func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 	var extents bytes.Buffer
 	ch := chunker.NewWithBoundaries(r, s.chunkerPolynomial,

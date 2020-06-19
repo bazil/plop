@@ -192,24 +192,10 @@ func (e *Extent) End() int64 {
 
 func (e *Extent) Bytes() ([]byte, error) {
 	hash := extentHash(e.reader.getExtent(e.idx))
-	cacheKey := string(hash)
-	e.reader.handle.store.cacheMu.Lock()
-	cache, ok := e.reader.handle.store.cache.Get(cacheKey)
-	e.reader.handle.store.cacheMu.Unlock()
-	if ok {
-		// cache hit
-		buf := cache.([]byte)
-		return buf, nil
-	}
-
-	// cache miss
-	buf, err := e.reader.handle.store.loadObject(e.reader.ctx, prefixBlob, hash)
+	buf, err := e.reader.handle.store.loadObjectCached(e.reader.ctx, prefixBlob, hash)
 	if err != nil {
 		return nil, err
 	}
-	e.reader.handle.store.cacheMu.Lock()
-	e.reader.handle.store.cache.Set(cacheKey, buf)
-	e.reader.handle.store.cacheMu.Unlock()
 	return buf, nil
 }
 
