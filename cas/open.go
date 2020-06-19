@@ -170,6 +170,12 @@ type Extent struct {
 	idx    int
 }
 
+func (e *Extent) Key() string {
+	hash := extentHash(e.reader.getExtent(e.idx))
+	key := zbase32.EncodeToString(hash)
+	return key
+}
+
 func (e *Extent) Start() int64 {
 	if e.idx == 0 {
 		return 0
@@ -177,6 +183,11 @@ func (e *Extent) Start() int64 {
 	// end offset of previous extent is our start
 	prev := e.reader.getExtent(e.idx - 1)
 	return extentOffset(prev)
+}
+
+func (e *Extent) End() int64 {
+	cur := e.reader.getExtent(e.idx)
+	return extentOffset(cur)
 }
 
 func (e *Extent) Bytes() ([]byte, error) {

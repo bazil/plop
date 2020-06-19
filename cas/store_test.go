@@ -44,10 +44,16 @@ func checkBucket(t testing.TB, bucket *blob.Bucket, want ...string) {
 	}
 }
 
-func checkExtent(t testing.TB, ext *cas.Extent, start int64, content string) {
+func checkExtent(t testing.TB, ext *cas.Extent, key string, start, end int64, content string) {
 	t.Helper()
+	if g, e := ext.Key(), key; g != e {
+		t.Errorf("bad extent key: %q != %q", g, e)
+	}
 	if g, e := ext.Start(), start; g != e {
 		t.Errorf("bad extent start: %d != %d", g, e)
+	}
+	if g, e := ext.End(), end; g != e {
+		t.Errorf("bad extent end: %d != %d", g, e)
 	}
 	buf, err := ext.Bytes()
 	if err != nil {
@@ -204,13 +210,15 @@ func TestExtentAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExtentAt: %v", err)
 	}
-	checkExtent(t, ext, 0, greeting[:chunkSize])
+	checkExtent(t, ext, "hzc3c3katri1w9ew996zjr3dtmw1a4nrigys7yoi8t9ab4km4oho",
+		0, chunkSize, greeting[:chunkSize])
 
 	ext2, ok := ext.Next()
 	if !ok {
 		t.Fatal("expected more extents")
 	}
-	checkExtent(t, ext2, chunkSize, greeting[chunkSize:])
+	checkExtent(t, ext2, "6reor7xnoecfy15x1xhr8hy4wezuw9o9sbhqu4sz1kgcqqdfybhy",
+		chunkSize, int64(len(greeting)), greeting[chunkSize:])
 
 	if _, ok := ext2.Next(); ok {
 		t.Fatal("didn't expect this many extents")
