@@ -300,3 +300,31 @@ func TestReadAtAcrossExtents(t *testing.T) {
 		)
 	}
 }
+
+func TestDebugReadBlob(t *testing.T) {
+	ctx := context.Background()
+	b := memblob.OpenBucket(nil)
+	s := cas.NewStore(b, "s3kr1t")
+	const greeting = "hello, world\n"
+	key, err := s.Create(ctx, strings.NewReader(greeting))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	h, err := s.Open(ctx, key)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	r := h.IO(ctx)
+	ext, err := r.ExtentAt(0)
+	if err != nil {
+		t.Fatalf("ExtentAt: %v", err)
+	}
+	blobKey := ext.Key()
+	buf, err := s.DebugReadBlob(ctx, blobKey)
+	if err != nil {
+		t.Fatalf("error reading blob: %v", err)
+	}
+	if g, e := string(buf), greeting; g != e {
+		t.Errorf("bad content: %q != %q", g, e)
+	}
+}

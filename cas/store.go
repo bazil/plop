@@ -464,3 +464,21 @@ func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 func (s *Store) Open(ctx context.Context, key string) (*Handle, error) {
 	return newHandle(ctx, s, key)
 }
+
+func (s *Store) DebugReadBlob(ctx context.Context, blobKey string) ([]byte, error) {
+	hash, err := zbase32.DecodeString(blobKey)
+	if err != nil {
+		return nil, ErrBadKey
+	}
+	if len(hash) != dataHashSize {
+		return nil, ErrBadKey
+	}
+	buf, err := s.loadObjectCached(ctx, prefixBlob, hash)
+	if err != nil {
+		if gcerrors.Code(err) == gcerrors.NotFound {
+			return nil, ErrNotExist
+		}
+		return nil, err
+	}
+	return buf, nil
+}
