@@ -54,7 +54,7 @@ func (c *boxkeyCommand) Run() error {
 }
 
 var boxkey = boxkeyCommand{
-	Description: "boxkey blobs",
+	Description: "convert a key to its untrusted (boxed) form",
 }
 
 func init() {
