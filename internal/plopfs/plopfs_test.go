@@ -56,7 +56,7 @@ func writeBlob(store *cas.Store, data []byte) (string, error) {
 	return key, nil
 }
 
-func mustWriteBlob(t *testing.T, store *cas.Store, data []byte) string {
+func mustWriteBlob(t testing.TB, store *cas.Store, data []byte) string {
 	t.Helper()
 	key, err := writeBlob(store, data)
 	if err != nil {
