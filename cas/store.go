@@ -400,6 +400,9 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 	return hash, boxedKey, nil
 }
 
+// not using Pool.New because zstd.NewReader can return an error
+var zstdDecoders sync.Pool
+
 func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []byte) ([]byte, error) {
 	boxedKeyRaw := s.boxKey(hash)
 	boxedKey := zbase32.EncodeToString(boxedKeyRaw)
@@ -442,11 +445,18 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 	compressed = compressed[len(prefix):]
 
 	// uncompress
-	zr, err := zstd.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		return nil, fmt.Errorf("zstd error: %w", err)
+	zr, ok := zstdDecoders.Get().(*zstd.Decoder)
+	cr := bytes.NewReader(compressed)
+	if ok {
+		zr.Reset(cr)
+	} else {
+		tmp, err := zstd.NewReader(cr)
+		if err != nil {
+			return nil, fmt.Errorf("zstd error: %w", err)
+		}
+		zr = tmp
 	}
-	defer zr.Close()
+	defer zstdDecoders.Put(zr)
 	// not using DecodeAll because our data might be big enough to
 	// benefit from parallelism
 	var zbuf bytes.Buffer
