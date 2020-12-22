@@ -369,13 +369,13 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 		}
 		zw = tmp
 	}
+	defer zstdEncoders.Put(zw)
 	if _, err := zw.Write(plaintext); err != nil {
 		return nil, "", fmt.Errorf("zstd write: %w", err)
 	}
 	if err := zw.Close(); err != nil {
 		return nil, "", fmt.Errorf("zstd close: %w", err)
 	}
-	zstdEncoders.Put(zw)
 	compressed := zbuf.Bytes()
 	ciphertext := s.dataCipher.Seal(compressed[:0], nonce, compressed, hash)
 
