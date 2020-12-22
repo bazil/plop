@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/storage v1.36.0
 	github.com/aws/aws-sdk-go v1.49.7
 	github.com/dgryski/go-s4lru v0.0.0-20150401095600-fd9b33c61bfe
+	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/hcl/v2 v2.19.1
 	github.com/klauspost/compress v1.17.4
 	github.com/restic/chunker v0.4.0
@@ -60,7 +61,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/google/wire v0.5.0 // indirect
@@ -71,6 +71,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
+	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect

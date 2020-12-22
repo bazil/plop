@@ -12,11 +12,17 @@ import (
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
+	"bazil.org/fuse/fs/fstestutil/spawntest"
+	"bazil.org/fuse/fs/fstestutil/spawntest/httpjson"
 	"bazil.org/plop/cas"
 	"bazil.org/plop/internal/config"
 	"bazil.org/plop/internal/plopfs"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"gocloud.dev/blob/fileblob"
 )
+
+var helpers spawntest.Registry
 
 func withMount(t testing.TB, configText string, fn func(mntpath string)) {
 	t.Helper()
@@ -39,30 +45,6 @@ func withMount(t testing.TB, configText string, fn func(mntpath string)) {
 	}
 	defer mnt.Close()
 	fn(mnt.Dir)
-}
-
-type fileInfo struct {
-	name   string
-	size   int64
-	mode   os.FileMode
-	blocks int64
-}
-
-func checkFI(t testing.TB, got os.FileInfo, expected fileInfo) {
-	t.Helper()
-	if g, e := got.Name(), expected.name; g != e {
-		t.Errorf("file info has bad name: %q != %q", g, e)
-	}
-	if g, e := got.Size(), expected.size; g != e {
-		t.Errorf("file info has bad size: %v != %v", g, e)
-	}
-	if g, e := got.Mode(), expected.mode; g != e {
-		t.Errorf("file info has bad mode: %v != %v", g, e)
-	}
-	st := got.Sys().(*syscall.Stat_t)
-	if g, e := st.Blocks, expected.blocks; g != e {
-		t.Errorf("file info has bad block count: %v != %v", g, e)
-	}
 }
 
 func writeBlob(store *cas.Store, data []byte) (string, error) {
@@ -98,6 +80,35 @@ func tempDir(tb testing.TB) string {
 	return p
 }
 
+type readdirResult struct {
+	Entries []readdirEntry
+}
+
+type readdirEntry struct {
+	Name string
+	Mode os.FileMode
+}
+
+func doReaddir(ctx context.Context, dir string) (*readdirResult, error) {
+	fis, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	r := &readdirResult{
+		// avoid null in JSON
+		Entries: []readdirEntry{},
+	}
+	for _, fi := range fis {
+		r.Entries = append(r.Entries, readdirEntry{
+			Name: fi.Name(),
+			Mode: fi.Mode(),
+		})
+	}
+	return r, nil
+}
+
+var readdirHelper = helpers.Register("readdir", httpjson.ServePOST(doReaddir))
+
 func TestRootReaddir(t *testing.T) {
 	tmp := tempDir(t)
 	config := fmt.Sprintf(`
@@ -112,19 +123,46 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
-		fis, err := ioutil.ReadDir(mntpath)
-		if err != nil {
-			t.Fatal(err)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := readdirHelper.Spawn(ctx, t)
+		defer control.Close()
+		var got readdirResult
+		if err := control.JSON("/").Call(ctx, mntpath, &got); err != nil {
+			t.Fatalf("calling helper: %v", err)
 		}
-		if g, e := len(fis), 1; g != e {
-			t.Fatalf("wrong readdir results: got %v", fis)
+		wantEntries := []readdirEntry{
+			{Name: "testvolume", Mode: os.ModeDir | 0o555},
 		}
-		checkFI(t, fis[0], fileInfo{
-			name: "testvolume",
-			mode: os.ModeDir | 0o555,
-		})
+		if diff := cmp.Diff(got.Entries, wantEntries); diff != "" {
+			t.Errorf("wrong readdir entries (-got +want)\n%s", diff)
+		}
 	})
 }
+
+type statResult struct {
+	Name   string
+	Size   int64
+	Mode   os.FileMode
+	Blocks int64
+}
+
+func doStat(ctx context.Context, path string) (*statResult, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	st := fi.Sys().(*syscall.Stat_t)
+	r := &statResult{
+		Name:   fi.Name(),
+		Size:   fi.Size(),
+		Mode:   fi.Mode(),
+		Blocks: st.Blocks,
+	}
+	return r, nil
+}
+
+var statHelper = helpers.Register("stat", httpjson.ServePOST(doStat))
 
 func TestStat(t *testing.T) {
 	tmp := tempDir(t)
@@ -149,43 +187,58 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
-		{
-			// root
-			fi, err := os.Stat(mntpath)
-			if err != nil {
-				t.Fatal(err)
-			}
-			checkFI(t, fi, fileInfo{
-				name: fi.Name(), // random tempdir name
-				mode: os.ModeDir | 0o555,
-			})
-		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := statHelper.Spawn(ctx, t)
+		defer control.Close()
 
-		{
-			// volume
-			fi, err := os.Stat(filepath.Join(mntpath, "testvolume"))
-			if err != nil {
-				t.Fatal(err)
+		t.Run("root", func(t *testing.T) {
+			var got statResult
+			if err := control.JSON("/").Call(ctx, mntpath, &got); err != nil {
+				t.Fatalf("calling helper: %v", err)
 			}
-			checkFI(t, fi, fileInfo{
-				name: "testvolume",
-				mode: os.ModeDir | 0o555,
-			})
-		}
+			want := statResult{
+				Mode: os.ModeDir | 0o555,
+			}
+			if diff := cmp.Diff(got, want,
+				// random tempdir name
+				cmpopts.IgnoreFields(statResult{}, "Name"),
+			); diff != "" {
+				t.Errorf("wrong stat result (-got +want)\n%s", diff)
+			}
+		})
 
-		{
-			// blob
-			fi, err := os.Stat(filepath.Join(mntpath, "testvolume", key))
-			if err != nil {
-				t.Fatal(err)
+		t.Run("volume", func(t *testing.T) {
+			p := filepath.Join(mntpath, "testvolume")
+			var got statResult
+			if err := control.JSON("/").Call(ctx, p, &got); err != nil {
+				t.Fatalf("calling helper: %v", err)
 			}
-			checkFI(t, fi, fileInfo{
-				name:   key,
-				size:   int64(len(greeting)),
-				mode:   0o444,
-				blocks: 1,
-			})
-		}
+			want := statResult{
+				Name: "testvolume",
+				Mode: os.ModeDir | 0o555,
+			}
+			if diff := cmp.Diff(got, want); diff != "" {
+				t.Errorf("wrong stat (-got +want)\n%s", diff)
+			}
+		})
+
+		t.Run("blob", func(t *testing.T) {
+			p := filepath.Join(mntpath, "testvolume", key)
+			var got statResult
+			if err := control.JSON("/").Call(ctx, p, &got); err != nil {
+				t.Fatalf("calling helper: %v", err)
+			}
+			want := statResult{
+				Name:   key,
+				Size:   int64(len(greeting)),
+				Mode:   0o444,
+				Blocks: 1,
+			}
+			if diff := cmp.Diff(got, want); diff != "" {
+				t.Errorf("wrong stat (-got +want)\n%s", diff)
+			}
+		})
 	})
 }
 
@@ -203,15 +256,31 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
-		fis, err := ioutil.ReadDir(filepath.Join(mntpath, "testvolume"))
-		if err != nil {
-			t.Fatal(err)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := readdirHelper.Spawn(ctx, t)
+		defer control.Close()
+		p := filepath.Join(mntpath, "testvolume")
+		var got readdirResult
+		if err := control.JSON("/").Call(ctx, p, &got); err != nil {
+			t.Fatalf("calling helper: %v", err)
 		}
-		if g, e := len(fis), 0; g != e {
-			t.Fatalf("wrong readdir results: got %v", fis)
+		wantEntries := []readdirEntry{}
+		if diff := cmp.Diff(got.Entries, wantEntries); diff != "" {
+			t.Errorf("wrong readdir entries (-got +want)\n%s", diff)
 		}
 	})
 }
+
+func doCheckNotExist(ctx context.Context, path string) (*struct{}, error) {
+	fi, err := os.Stat(path)
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("expected ErrNotExist, got %v for %v", err, fi)
+	}
+	return nil, nil
+}
+
+var checkNotExistHelper = helpers.Register("notExist", httpjson.ServePOST(doCheckNotExist))
 
 func TestVolumeNotExist(t *testing.T) {
 	tmp := tempDir(t)
@@ -227,12 +296,54 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
-		_, err := os.Stat(filepath.Join(mntpath, "does-not-exist"))
-		if !errors.Is(err, os.ErrNotExist) {
-			t.Fatalf("expected ErrNotExist, got %v", err)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := checkNotExistHelper.Spawn(ctx, t)
+		defer control.Close()
+		p := filepath.Join(mntpath, "does-not-exist")
+		var nothing struct{}
+		if err := control.JSON("/").Call(ctx, p, &nothing); err != nil {
+			t.Fatalf("calling helper: %v", err)
 		}
 	})
 }
+
+type readFstatResult struct {
+	Content []byte
+	Stat    statResult
+}
+
+func doReadFstat(ctx context.Context, path string) (*readFstatResult, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("Open: %v", err)
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("Stat: %v", err)
+	}
+	st := fi.Sys().(*syscall.Stat_t)
+
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("ReadAll: %v", err)
+	}
+
+	r := &readFstatResult{
+		Content: data,
+		Stat: statResult{
+			Name:   fi.Name(),
+			Size:   fi.Size(),
+			Mode:   fi.Mode(),
+			Blocks: st.Blocks,
+		},
+	}
+	return r, nil
+}
+
+var readFstatHelper = helpers.Register("readFstat", httpjson.ServePOST(doReadFstat))
 
 func TestRead(t *testing.T) {
 	tmp := tempDir(t)
@@ -257,24 +368,27 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
-		f, err := os.Open(filepath.Join(mntpath, "testvolume", key))
-		if err != nil {
-			t.Fatalf("Open: %v", err)
-		}
-		defer f.Close()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := readFstatHelper.Spawn(ctx, t)
+		defer control.Close()
 
-		fi, err := f.Stat()
-		if err != nil {
-			t.Errorf("Stat: %v", err)
+		p := filepath.Join(mntpath, "testvolume", key)
+		var got readFstatResult
+		if err := control.JSON("/").Call(ctx, p, &got); err != nil {
+			t.Fatalf("calling helper: %v", err)
 		}
-		checkFI(t, fi, fileInfo{name: key, size: int64(len(greeting)), blocks: 1, mode: 0o444})
-
-		data, err := ioutil.ReadAll(f)
-		if err != nil {
-			t.Fatal(err)
+		want := readFstatResult{
+			Content: []byte(greeting),
+			Stat: statResult{
+				Name:   key,
+				Size:   int64(len(greeting)),
+				Blocks: 1,
+				Mode:   0o444,
+			},
 		}
-		if g, e := string(data), greeting; g != e {
-			t.Fatalf("wrong read results: %q != %q", g, e)
+		if diff := cmp.Diff(got, want); diff != "" {
+			t.Errorf("wrong stat result (-got +want)\n%s", diff)
 		}
 	})
 }
@@ -293,16 +407,18 @@ volume "testvolume" {
 `, "file://"+tmp)
 
 	withMount(t, config, func(mntpath string) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		control := checkNotExistHelper.Spawn(ctx, t)
+		defer control.Close()
 		for _, badkey := range []string{
 			"ne5em96397gwhy4cow3jmifggc7ssewzbfaiaao77kq3ea83n5cy",
 			"not-really-a-hash",
 		} {
-			f, err := os.Open(filepath.Join(mntpath, "testvolume", badkey))
-			if !errors.Is(err, os.ErrNotExist) {
-				t.Errorf("expected ErrNotExist, got: %v", err)
-			}
-			if err == nil {
-				f.Close()
+			p := filepath.Join(mntpath, "testvolume", badkey)
+			var nothing struct{}
+			if err := control.JSON("/").Call(ctx, p, &nothing); err != nil {
+				t.Fatalf("calling helper: %v", err)
 			}
 		}
 	})
