@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"bazil.org/plop/cas"
 	"bazil.org/plop/internal/config"
+	"bazil.org/plop/internal/multierr"
 	"gocloud.dev/blob"
 )
 
@@ -40,24 +40,6 @@ func New(cfg *config.Config) (*PlopFS, error) {
 	return filesys, nil
 }
 
-type multierr []error
-
-var _ error = multierr{}
-
-func (m multierr) Error() string {
-	if len(m) == 1 {
-		return m[0].Error()
-	}
-	var b strings.Builder
-	b.WriteString("multiple errors:\n")
-	for _, e := range m {
-		b.WriteString("\n\t")
-		b.WriteString(e.Error())
-	}
-	b.WriteString("\n")
-	return b.String()
-}
-
 func (f *PlopFS) Close() error {
 	var errs []error
 	for name, b := range f.buckets {
@@ -66,8 +48,8 @@ func (f *PlopFS) Close() error {
 			errs = append(errs, err)
 		}
 	}
-	if errs != nil {
-		return multierr(errs)
+	if len(errs) > 0 {
+		return multierr.New(errs)
 	}
 	return nil
 }
