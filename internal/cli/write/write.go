@@ -12,7 +12,7 @@ import (
 	cliplop "bazil.org/plop/internal/cli"
 	"github.com/tv42/cliutil/positional"
 	"github.com/tv42/cliutil/subcommands"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type writeCommand struct {
@@ -57,7 +57,7 @@ func (c *writeCommand) Run() error {
 	}
 
 	if len(c.Arguments.File) == 0 {
-		if terminal.IsTerminal(0) {
+		if term.IsTerminal(0) {
 			return errors.New("refusing to read from terminal")
 		}
 		if err := c.writeFromReader(ctx, store, os.Stdin); err != nil {
