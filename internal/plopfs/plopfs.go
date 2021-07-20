@@ -28,13 +28,12 @@ func New(cfg *config.Config) (*PlopFS, error) {
 		volumes: make(map[string]*cas.Store, len(cfg.Volumes)),
 		buckets: make(map[string]*blob.Bucket, len(cfg.Volumes)),
 	}
+	ctx := context.TODO()
 	for _, vol := range cfg.Volumes {
-		ctx := context.TODO()
-		bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
+		store, bucket, err := config.OpenVolume(ctx, cfg, vol)
 		if err != nil {
 			return nil, err
 		}
-		store := cas.NewStore(bucket, vol.Passphrase)
 		filesys.volumes[vol.Name] = store
 		filesys.buckets[vol.Name] = bucket
 	}

@@ -13,7 +13,6 @@ import (
 	"bazil.org/plop/cas"
 	"bazil.org/plop/internal/config"
 	"github.com/tv42/cliutil/subcommands"
-	"gocloud.dev/blob"
 )
 
 type plop struct {
@@ -88,18 +87,14 @@ func (p *plop) Volume(volumeName string) (*config.Volume, error) {
 // Store returns the CAS store for the given volume.
 func (p *plop) Store(vol *config.Volume) (*cas.Store, error) {
 	ctx := context.TODO()
-	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
-	if err != nil {
-		return nil, err
-	}
-	var opts []cas.Option
 	cfg, err := p.Config()
 	if err != nil {
 		return nil, err
 	}
-	opts = append(opts, cfg.Chunker.CASOptions()...)
-	opts = append(opts, vol.Chunker.CASOptions()...)
-	store := cas.NewStore(bucket, vol.Passphrase, opts...)
+	store, _, err := config.OpenVolume(ctx, cfg, vol)
+	if err != nil {
+		return nil, err
+	}
 	return store, nil
 }
 
