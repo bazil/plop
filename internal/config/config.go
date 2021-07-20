@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -10,9 +11,13 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/zclconf/go-cty/cty"
+	"gocloud.dev/blob/s3blob"
 )
 
 type Config struct {
+	// Path from which this config was read from.
+	path string
+
 	MountPoint string `hcl:"mountpoint"`
 	// SymlinkTarget is the prefix path added to symlinks created by `plop add`.
 	// Defaults to MountPoint.
@@ -45,6 +50,24 @@ type Volume struct {
 
 type Bucket struct {
 	URL string `hcl:"url"`
+	url url.URL
+	AWS *AWSConfig `hcl:"aws,block"`
+}
+
+type AWSConfig struct {
+	CredentialsFile *AWSCredentialsFile `hcl:"credentials_file,block"`
+}
+
+type AWSCredentialsFile struct {
+	// Path to AWS credentials.
+	//
+	// Relative paths are interpreted relative to the Plop
+	// configuration directory.
+	//
+	// Empty string means AWS SDK should use the shared credentials
+	// file at its default location.
+	Path    *string `hcl:"path"`
+	Profile *string `hcl:"profile"`
 }
 
 type ChunkerConfig struct {
@@ -94,6 +117,7 @@ func ParseConfig(filename string, src []byte) (*Config, error) {
 	if err := hclsimple.Decode(filename, src, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
+	cfg.path = filename
 	if err := parseConfig(&cfg); err != nil {
 		return nil, err
 	}
@@ -105,6 +129,7 @@ func ReadConfig(p string) (*Config, error) {
 	if err := hclsimple.DecodeFile(p, evalCtx, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
+	cfg.path = p
 	// fold in any local config; TODO flag to disable?
 	local, err := ReadLocalConfig()
 	if err != nil {
@@ -161,6 +186,16 @@ func parseConfig(cfg *Config) error {
 		}
 		if vol.Bucket.URL == "" {
 			return fmt.Errorf("config block volume %q bucket url must be set", vol.Name)
+		}
+		bucket_url, err := url.Parse(vol.Bucket.URL)
+		if err != nil {
+			return fmt.Errorf("config block volume %q invalid bucket URL: %v", vol.Name, err)
+		}
+		vol.Bucket.url = *bucket_url
+		if vol.Bucket.AWS != nil {
+			if vol.Bucket.url.Scheme != s3blob.Scheme {
+				return fmt.Errorf("config block volume %q has aws config with non-s3 url", vol.Name)
+			}
 		}
 	}
 

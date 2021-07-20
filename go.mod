@@ -6,6 +6,7 @@ require (
 	bazil.org/fuse v0.0.0-20200430160008-602fc2ff4a00
 	cloud.google.com/go v0.87.0 // indirect
 	cloud.google.com/go/storage v1.15.0
+	github.com/aws/aws-sdk-go v1.38.35
 	github.com/dgryski/go-s4lru v0.0.0-20150401095600-fd9b33c61bfe
 	github.com/dvyukov/go-fuzz v0.0.0-20210602112143-b1f3d6f4ef4e
 	github.com/hashicorp/hcl/v2 v2.10.0
