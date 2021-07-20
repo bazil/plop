@@ -154,7 +154,7 @@ func parseConfig(cfg *Config) error {
 			return fmt.Errorf("config field volume %q name must not contain slashes or zero bytes", vol.Name)
 		}
 		if vol.Passphrase == "" {
-			return fmt.Errorf("config field volume %q passphrase must be set", vol.Name)
+			return fmt.Errorf("config block volume %q passphrase must be set", vol.Name)
 		}
 		if vol.Bucket == nil {
 			return fmt.Errorf("config block volume %q bucket must be present", vol.Name)
