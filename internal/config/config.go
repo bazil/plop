@@ -160,7 +160,7 @@ func parseConfig(cfg *Config) error {
 			return fmt.Errorf("config block volume %q bucket must be present", vol.Name)
 		}
 		if vol.Bucket.URL == "" {
-			return errors.New("config field Bucket must be set")
+			return fmt.Errorf("config block volume %q bucket url must be set", vol.Name)
 		}
 	}
 
