@@ -85,6 +85,14 @@ func (m *Multiflight) Run(ctx context.Context) (interface{}, error) {
 	exited := make(chan result, 1)
 	numWorkers := 0
 	next := time.NewTimer(0)
+	// Reusing timers is subtle. Guarantee the timer is stopped and
+	// drained at the beginning of every iteration.
+	//
+	// See
+	// https://github.com/golang/go/issues/27169#issuecomment-415383431
+	if !next.Stop() {
+		<-next.C
+	}
 
 	for {
 		debugf("loop: numWorkers=%d actions=%d", numWorkers, len(actions))
@@ -93,20 +101,17 @@ func (m *Multiflight) Run(ctx context.Context) (interface{}, error) {
 			// Only worry about *when* to start more if there's
 			// currently at least some workers.
 
+			var timeBased <-chan time.Time
 			if len(actions) > 0 {
-				debugf("delay=%v", actions[0].delay)
-				d := time.Until(start.Add(actions[0].delay))
-				if !next.Stop() {
-					<-next.C
+				// Do we have room for more workers
+				if m.maxWorkers <= 0 || numWorkers < m.maxWorkers {
+					debugf("delay=%v", actions[0].delay)
+					d := time.Until(start.Add(actions[0].delay))
+					next.Reset(d)
+					timeBased = next.C
 				}
-				next.Reset(d)
 			}
 
-			timeBased := next.C
-			if m.maxWorkers > 0 && numWorkers >= m.maxWorkers {
-				// Can't start more until some workers exit.
-				timeBased = nil
-			}
 			// Wait until we have a reason to act.
 			select {
 			case <-timeBased:
@@ -116,6 +121,18 @@ func (m *Multiflight) Run(ctx context.Context) (interface{}, error) {
 				wantMore = true
 
 			case r := <-exited:
+				if timeBased != nil {
+					// Attempting to drain the timer would hang if the
+					// timer wasn't running previously. Since we don't
+					// use the timer on every iteration of the loop,
+					// drain only conditionally.
+					//
+					// See
+					// https://github.com/golang/go/issues/27169#issuecomment-415383431
+					if !next.Stop() {
+						<-next.C
+					}
+				}
 				if r.err == nil {
 					// Success!
 					debugf("worker success")

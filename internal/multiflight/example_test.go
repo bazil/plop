@@ -13,7 +13,9 @@ func Example() {
 	m := multiflight.New()
 	m.SetMaxWorkers(10)
 	m.Add(0, func(ctx context.Context) (interface{}, error) {
-		time.Sleep(100 * time.Millisecond)
+		// So ridiculously long that this should never win the race,
+		// to keep the example reproducible.
+		time.Sleep(1 * time.Second)
 		return "slow", nil
 	})
 	m.Add(10*time.Millisecond, func(ctx context.Context) (interface{}, error) {
@@ -29,7 +31,9 @@ func Example() {
 		fmt.Printf("error: %v\n", err)
 		return
 	}
-	// This will most commonly output "fast", but a loaded system
-	// might also result in "slow".
+	// This will practically always output "fast", but on a
+	// ridiculously loaded system might also result in "slow".
 	fmt.Printf("result: %v\n", result)
+	// Output:
+	// result: fast
 }
