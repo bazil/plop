@@ -8,6 +8,7 @@ import (
 	"math"
 	"sort"
 
+	"bazil.org/plop/internal/multierr"
 	"github.com/tv42/zbase32"
 	"gocloud.dev/gcerrors"
 )
@@ -27,7 +28,15 @@ func newHandle(ctx context.Context, s *Store, key string) (*Handle, error) {
 	}
 	extents, err := s.loadObject(ctx, prefixExtents, hash)
 	if err != nil {
-		if gcerrors.Code(err) == gcerrors.NotFound {
+		// Object does not exist if all backing stores confirmed they
+		// don't have it.
+		//
+		// If we have e.g. a transient error anywhere, we can't say
+		// for sure.
+		isNotFound := func(err error) bool {
+			return gcerrors.Code(err) == gcerrors.NotFound
+		}
+		if multierr.All(err, isNotFound) {
 			return nil, ErrNotExist
 		}
 		return nil, err

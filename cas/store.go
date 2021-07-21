@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"bazil.org/plop/internal/multierr"
+	"bazil.org/plop/internal/multiflight"
 	"cloud.google.com/go/storage"
 	"github.com/dgryski/go-s4lru"
 	"github.com/klauspost/compress/zstd"
@@ -246,6 +248,10 @@ func (s *Store) uploadToBackend(ctx context.Context, bucket *blob.Bucket, boxedK
 		const preflightSize = 1 * 1024 * 1024
 		if len(data) > preflightSize {
 			// do a HEAD to avoid transferring data over and over
+			//
+			// With multiple alternative buckets, this can still cause
+			// some duplication (and is skipped for small objects,
+			// anyway).
 			exists, err := bucket.Exists(ctx, boxedKey)
 			if err != nil {
 				return err
@@ -354,8 +360,19 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 
 	boxedKeyRaw := s.boxKey(hash)
 	boxedKey = zbase32.EncodeToString(boxedKeyRaw)
-	bucket := s.config.buckets[0].bucket
-	if err := s.uploadToBackend(ctx, bucket, boxedKey, ciphertext); err != nil {
+
+	m := multiflight.New()
+	for _, alt := range s.config.buckets {
+		bucket := alt.bucket
+		upload := func(ctx context.Context) (interface{}, error) {
+			if err := s.uploadToBackend(ctx, bucket, boxedKey, ciphertext); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
+		m.Add(alt.delay, upload)
+	}
+	if _, err := m.Run(ctx); err != nil {
 		return nil, "", err
 	}
 	return hash, boxedKey, nil
@@ -364,11 +381,24 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []byte) ([]byte, error) {
 	boxedKeyRaw := s.boxKey(hash)
 	boxedKey := zbase32.EncodeToString(boxedKeyRaw)
-	bucket := s.config.buckets[0].bucket
-	ciphertext, err := s.downloadFromBackend(ctx, bucket, boxedKey, prefix)
+
+	m := multiflight.New()
+	for _, alt := range s.config.buckets {
+		bucket := alt.bucket
+		download := func(ctx context.Context) (interface{}, error) {
+			ciphertext, err := s.downloadFromBackend(ctx, bucket, boxedKey, prefix)
+			if err != nil {
+				return nil, err
+			}
+			return ciphertext, nil
+		}
+		m.Add(alt.delay, download)
+	}
+	result, err := m.Run(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ciphertext := result.([]byte)
 	nonce := s.nonce(hash)
 	compressed, err := s.dataCipher.Open(ciphertext[:0], nonce, ciphertext, hash)
 	if err != nil {
@@ -485,7 +515,10 @@ func (s *Store) DebugReadBlob(ctx context.Context, blobKey string) ([]byte, erro
 	}
 	buf, err := s.loadObjectCached(ctx, prefixBlob, hash)
 	if err != nil {
-		if gcerrors.Code(err) == gcerrors.NotFound {
+		isNotFound := func(err error) bool {
+			return gcerrors.Code(err) == gcerrors.NotFound
+		}
+		if multierr.All(err, isNotFound) {
 			return nil, ErrNotExist
 		}
 		return nil, err
