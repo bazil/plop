@@ -21,7 +21,7 @@ func benchmarkCreate(b *testing.B, size int) {
 	randR.Read(buf)
 
 	bucket := memblob.OpenBucket(nil)
-	s := cas.NewStore(bucket, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(bucket))
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

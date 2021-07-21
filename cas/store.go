@@ -92,14 +92,18 @@ func newCipher(secret []byte) cipher.AEAD {
 	return c
 }
 
+type alternativeBucket struct {
+	bucket *blob.Bucket
+}
+
 type config struct {
 	chunkMin     uint32
 	chunkMax     uint32
 	chunkAvgBits int
+	buckets      []alternativeBucket
 }
 
 type Store struct {
-	bucket            *blob.Bucket
 	config            config
 	nameSecret        []byte
 	hashSecret        []byte
@@ -125,7 +129,7 @@ func blake3DeriveKeySized(context constantString, key []byte, size int) []byte {
 	return out
 }
 
-func NewStore(bucket *blob.Bucket, sharingPassphrase string, opts ...Option) *Store {
+func NewStore(sharingPassphrase string, opts ...Option) *Store {
 	// Salt for argon2 key derivation. This is obviously not secret
 	// (and cannot be), but it does force any attackers to attack this
 	// software specifically and not rely on existing rainbow tables.
@@ -153,7 +157,6 @@ func NewStore(bucket *blob.Bucket, sharingPassphrase string, opts ...Option) *St
 	}
 	const MiB = 1024 * 1024
 	s := &Store{
-		bucket: bucket,
 		config: config{
 			chunkMin:     4 * MiB,
 			chunkMax:     16 * MiB,
@@ -198,6 +201,9 @@ func NewStore(bucket *blob.Bucket, sharingPassphrase string, opts ...Option) *St
 	for _, opt := range opts {
 		opt(&s.config)
 	}
+	if len(s.config.buckets) == 0 {
+		panic("cas.NewStore must have at least one bucket")
+	}
 	return s
 }
 
@@ -229,7 +235,8 @@ func (s *Store) boxKey(key []byte) []byte {
 
 func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byte) error {
 	hasCreateIfNotExist := false
-	if gcsClient := (*storage.Client)(nil); s.bucket.As(&gcsClient) {
+	bucket := s.config.buckets[0].bucket
+	if gcsClient := (*storage.Client)(nil); bucket.As(&gcsClient) {
 		hasCreateIfNotExist = true
 	}
 	if !hasCreateIfNotExist {
@@ -238,7 +245,7 @@ func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byt
 		const preflightSize = 1 * 1024 * 1024
 		if len(data) > preflightSize {
 			// do a HEAD to avoid transferring data over and over
-			exists, err := s.bucket.Exists(ctx, boxedKey)
+			exists, err := bucket.Exists(ctx, boxedKey)
 			if err != nil {
 				return err
 			}
@@ -265,7 +272,7 @@ func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byt
 			return nil
 		},
 	}
-	if err := s.bucket.WriteAll(ctx, boxedKey, data, opts); err != nil {
+	if err := bucket.WriteAll(ctx, boxedKey, data, opts); err != nil {
 		switch gcerrors.Code(err) {
 		case gcerrors.AlreadyExists:
 			return nil
@@ -281,7 +288,8 @@ func (s *Store) downloadFromBackend(ctx context.Context, boxedKey string, prefix
 	opts := &blob.ReaderOptions{
 		// TODO BeforeRead
 	}
-	br, err := s.bucket.NewReader(ctx, boxedKey, opts)
+	bucket := s.config.buckets[0].bucket
+	br, err := bucket.NewReader(ctx, boxedKey, opts)
 	if err != nil {
 		return nil, fmt.Errorf("object read open: %w", err)
 	}

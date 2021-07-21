@@ -67,7 +67,7 @@ func checkExtent(t testing.TB, ext *cas.Extent, key string, start, end int64, co
 
 func TestRoundtrip(t *testing.T) {
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 
 	// intentionally enforce harsh lifetimes on contexts to make
 	// sure we don't remember them too long
@@ -111,7 +111,7 @@ func TestRoundtrip(t *testing.T) {
 
 func TestCreateSizeZero(t *testing.T) {
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 
 	// intentionally enforce harsh lifetimes on contexts to make
 	// sure we don't remember them too long
@@ -155,7 +155,7 @@ func TestCreateSizeZero(t *testing.T) {
 func TestReadAt(t *testing.T) {
 	ctx := context.Background()
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 	const greeting = "hello, world\n"
 	key, err := s.Create(ctx, strings.NewReader(greeting))
 	if err != nil {
@@ -188,7 +188,8 @@ func TestExtentAt(t *testing.T) {
 	// It seems chunker does not respect minsize < windowSize, which
 	// is 64.
 	const chunkSize = 100
-	s := cas.NewStore(b, "s3kr1t",
+	s := cas.NewStore("s3kr1t",
+		cas.WithBucket(b),
 		cas.WithChunkLimits(chunkSize, chunkSize),
 	)
 	greeting := strings.Repeat("hello, world\n", 10)
@@ -228,7 +229,7 @@ func TestExtentAt(t *testing.T) {
 func TestReadAtPastEOF(t *testing.T) {
 	ctx := context.Background()
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 	const greeting = "hello, world\n"
 	key, err := s.Create(ctx, strings.NewReader(greeting))
 	if err != nil {
@@ -265,7 +266,8 @@ func TestReadAtAcrossExtents(t *testing.T) {
 	// It seems chunker does not respect minsize < windowSize, which
 	// is 64.
 	const chunkSize = 100
-	s := cas.NewStore(b, "s3kr1t",
+	s := cas.NewStore("s3kr1t",
+		cas.WithBucket(b),
 		cas.WithChunkLimits(chunkSize, chunkSize),
 	)
 	greeting := strings.Repeat("hello, world\n", 10)
@@ -304,7 +306,7 @@ func TestReadAtAcrossExtents(t *testing.T) {
 func TestDebugReadBlob(t *testing.T) {
 	ctx := context.Background()
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 	const greeting = "hello, world\n"
 	key, err := s.Create(ctx, strings.NewReader(greeting))
 	if err != nil {
@@ -331,7 +333,7 @@ func TestDebugReadBlob(t *testing.T) {
 
 func TestDebugBoxKey(t *testing.T) {
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t")
+	s := cas.NewStore("s3kr1t", cas.WithBucket(b))
 	const key = "s4wfu6c18bh6ahfjgirpsqp7zmr6pg18d9rho7rrgzpkqonsz8jy"
 	boxed, err := s.DebugBoxKey(key)
 	if err != nil {

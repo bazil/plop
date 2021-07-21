@@ -1,5 +1,9 @@
 package cas
 
+import (
+	"gocloud.dev/blob"
+)
+
 type option func(*config)
 
 type Option option
@@ -33,6 +37,14 @@ func WithChunkGoal(size uint32) Option {
 		if size != 0 {
 			cfg.chunkAvgBits = bitsOfPowerOfTwo(size)
 		}
+	}
+	return fn
+}
+
+// WithBucket add a bucket as an alternate destination for reads and writes.
+func WithBucket(bucket *blob.Bucket) Option {
+	fn := func(cfg *config) {
+		cfg.buckets = append(cfg.buckets, alternativeBucket{bucket: bucket})
 	}
 	return fn
 }

@@ -48,8 +48,9 @@ func OpenVolume(ctx context.Context, cfg *Config, vol *Volume) (*cas.Store, *blo
 		return nil, nil, err
 	}
 	var opts []cas.Option
+	opts = append(opts, cas.WithBucket(bucket))
 	opts = append(opts, cfg.Chunker.CASOptions()...)
 	opts = append(opts, vol.Chunker.CASOptions()...)
-	store := cas.NewStore(bucket, vol.Passphrase, opts...)
+	store := cas.NewStore(vol.Passphrase, opts...)
 	return store, bucket, nil
 }

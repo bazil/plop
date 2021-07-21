@@ -70,7 +70,8 @@ func TestQuickCompareRead(t *testing.T) {
 	randR.Read(buf)
 
 	b := memblob.OpenBucket(nil)
-	s := cas.NewStore(b, "s3kr1t",
+	s := cas.NewStore("s3kr1t",
+		cas.WithBucket(b),
 		// cause extent crossings to happen
 		cas.WithChunkLimits(size/100, size/10),
 		cas.WithChunkGoal(size/50),

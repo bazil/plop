@@ -13,7 +13,7 @@ import (
 
 func Fuzz(data []byte) int {
 	b := memblob.OpenBucket(nil)
-	s := NewStore(b, "s3kr1t")
+	s := NewStore("s3kr1t", WithBucket(b))
 
 	ctx := context.Background()
 	key, err := s.Create(ctx, bytes.NewReader(data))

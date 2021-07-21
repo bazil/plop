@@ -133,7 +133,7 @@ func TestStat(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer bucket.Close()
-	store := cas.NewStore(bucket, "s3kr1t")
+	store := cas.NewStore("s3kr1t", cas.WithBucket(bucket))
 	const greeting = "hello, world\n"
 	key := mustWriteBlob(t, store, []byte(greeting))
 
@@ -241,7 +241,7 @@ func TestRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer bucket.Close()
-	store := cas.NewStore(bucket, "s3kr1t")
+	store := cas.NewStore("s3kr1t", cas.WithBucket(bucket))
 	const greeting = "hello, world\n"
 	key := mustWriteBlob(t, store, []byte(greeting))
 
