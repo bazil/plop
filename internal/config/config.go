@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"bazil.org/plop/cas"
 	"github.com/hashicorp/hcl/v2"
@@ -49,9 +50,11 @@ type Volume struct {
 }
 
 type Bucket struct {
-	URL string `hcl:"url"`
-	url url.URL
-	AWS *AWSConfig `hcl:"aws,block"`
+	Delay *string `hcl:"delay"`
+	delay time.Duration
+	URL   string `hcl:"url"`
+	url   url.URL
+	AWS   *AWSConfig `hcl:"aws,block"`
 }
 
 type AWSConfig struct {
@@ -199,6 +202,14 @@ func parseConfig(cfg *Config) error {
 						return fmt.Errorf("config block volume %q bucket %v has aws config with non-s3 url", vol.Name, bucket.url.String())
 					}
 				}
+			}
+
+			if bucket.Delay != nil {
+				d, err := time.ParseDuration(*bucket.Delay)
+				if err != nil {
+					return fmt.Errorf("config block volume %q bucket %v invalid time: %v", vol.Name, bucket.url.String(), err)
+				}
+				bucket.delay = d
 			}
 		}
 	}

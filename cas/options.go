@@ -1,6 +1,8 @@
 package cas
 
 import (
+	"time"
+
 	"gocloud.dev/blob"
 )
 
@@ -43,8 +45,15 @@ func WithChunkGoal(size uint32) Option {
 
 // WithBucket add a bucket as an alternate destination for reads and writes.
 func WithBucket(bucket *blob.Bucket) Option {
+	return WithBucketAfter(0, bucket)
+}
+
+// WithBucketAfter add a bucket as an alternate destination for reads and writes.
+//
+// It will only be tried after delay has passed, or if all earlier possible buckets have failed.
+func WithBucketAfter(delay time.Duration, bucket *blob.Bucket) Option {
 	fn := func(cfg *config) {
-		cfg.buckets = append(cfg.buckets, alternativeBucket{bucket: bucket})
+		cfg.buckets = append(cfg.buckets, alternativeBucket{delay: delay, bucket: bucket})
 	}
 	return fn
 }

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/dgryski/go-s4lru"
@@ -93,6 +94,7 @@ func newCipher(secret []byte) cipher.AEAD {
 }
 
 type alternativeBucket struct {
+	delay  time.Duration
 	bucket *blob.Bucket
 }
 
