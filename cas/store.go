@@ -233,9 +233,8 @@ func (s *Store) boxKey(key []byte) []byte {
 	return boxedKey
 }
 
-func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byte) error {
+func (s *Store) uploadToBackend(ctx context.Context, bucket *blob.Bucket, boxedKey string, data []byte) error {
 	hasCreateIfNotExist := false
-	bucket := s.config.buckets[0].bucket
 	if gcsClient := (*storage.Client)(nil); bucket.As(&gcsClient) {
 		hasCreateIfNotExist = true
 	}
@@ -284,11 +283,10 @@ func (s *Store) uploadToBackend(ctx context.Context, boxedKey string, data []byt
 	return nil
 }
 
-func (s *Store) downloadFromBackend(ctx context.Context, boxedKey string, prefix constantString) ([]byte, error) {
+func (s *Store) downloadFromBackend(ctx context.Context, bucket *blob.Bucket, boxedKey string, prefix constantString) ([]byte, error) {
 	opts := &blob.ReaderOptions{
 		// TODO BeforeRead
 	}
-	bucket := s.config.buckets[0].bucket
 	br, err := bucket.NewReader(ctx, boxedKey, opts)
 	if err != nil {
 		return nil, fmt.Errorf("object read open: %w", err)
@@ -354,7 +352,8 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 
 	boxedKeyRaw := s.boxKey(hash)
 	boxedKey = zbase32.EncodeToString(boxedKeyRaw)
-	if err := s.uploadToBackend(ctx, boxedKey, ciphertext); err != nil {
+	bucket := s.config.buckets[0].bucket
+	if err := s.uploadToBackend(ctx, bucket, boxedKey, ciphertext); err != nil {
 		return nil, "", err
 	}
 	return hash, boxedKey, nil
@@ -363,7 +362,8 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []byte) ([]byte, error) {
 	boxedKeyRaw := s.boxKey(hash)
 	boxedKey := zbase32.EncodeToString(boxedKeyRaw)
-	ciphertext, err := s.downloadFromBackend(ctx, boxedKey, prefix)
+	bucket := s.config.buckets[0].bucket
+	ciphertext, err := s.downloadFromBackend(ctx, bucket, boxedKey, prefix)
 	if err != nil {
 		return nil, err
 	}
