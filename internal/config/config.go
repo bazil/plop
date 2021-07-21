@@ -44,7 +44,7 @@ func (cfg *Config) GetVolume(name string) (_ *Volume, ok bool) {
 type Volume struct {
 	Name       string         `hcl:"volume,label"`
 	Passphrase string         `hcl:"passphrase"`
-	Bucket     *Bucket        `hcl:"bucket,block"`
+	Buckets    []*Bucket      `hcl:"bucket,block"`
 	Chunker    *ChunkerConfig `hcl:"chunker,block"`
 }
 
@@ -181,20 +181,24 @@ func parseConfig(cfg *Config) error {
 		if vol.Passphrase == "" {
 			return fmt.Errorf("config block volume %q passphrase must be set", vol.Name)
 		}
-		if vol.Bucket == nil {
+		if len(vol.Buckets) == 0 {
 			return fmt.Errorf("config block volume %q bucket must be present", vol.Name)
 		}
-		if vol.Bucket.URL == "" {
-			return fmt.Errorf("config block volume %q bucket url must be set", vol.Name)
-		}
-		bucket_url, err := url.Parse(vol.Bucket.URL)
-		if err != nil {
-			return fmt.Errorf("config block volume %q invalid bucket URL: %v", vol.Name, err)
-		}
-		vol.Bucket.url = *bucket_url
-		if vol.Bucket.AWS != nil {
-			if vol.Bucket.url.Scheme != s3blob.Scheme {
-				return fmt.Errorf("config block volume %q has aws config with non-s3 url", vol.Name)
+		for idx, bucket := range vol.Buckets {
+			{
+				if bucket.URL == "" {
+					return fmt.Errorf("config block volume %q bucket #%d url must be set", vol.Name, idx+1)
+				}
+				bucket_url, err := url.Parse(bucket.URL)
+				if err != nil {
+					return fmt.Errorf("config block volume %q invalid bucket URL: %v: %v", vol.Name, bucket.URL, err)
+				}
+				bucket.url = *bucket_url
+				if bucket.AWS != nil {
+					if bucket.url.Scheme != s3blob.Scheme {
+						return fmt.Errorf("config block volume %q bucket %v has aws config with non-s3 url", vol.Name, bucket.url.String())
+					}
+				}
 			}
 		}
 	}

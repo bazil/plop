@@ -20,32 +20,34 @@ const forever = 1000000 * time.Hour
 
 type PlopFS struct {
 	volumes map[string]*cas.Store
-	buckets map[string]*blob.Bucket
+	buckets map[string][]*blob.Bucket
 }
 
 func New(cfg *config.Config) (*PlopFS, error) {
 	filesys := &PlopFS{
 		volumes: make(map[string]*cas.Store, len(cfg.Volumes)),
-		buckets: make(map[string]*blob.Bucket, len(cfg.Volumes)),
+		buckets: make(map[string][]*blob.Bucket, len(cfg.Volumes)),
 	}
 	ctx := context.TODO()
 	for _, vol := range cfg.Volumes {
-		store, bucket, err := config.OpenVolume(ctx, cfg, vol)
+		store, buckets, err := config.OpenVolume(ctx, cfg, vol)
 		if err != nil {
 			return nil, err
 		}
 		filesys.volumes[vol.Name] = store
-		filesys.buckets[vol.Name] = bucket
+		filesys.buckets[vol.Name] = buckets
 	}
 	return filesys, nil
 }
 
 func (f *PlopFS) Close() error {
 	var errs []error
-	for name, b := range f.buckets {
-		if err := b.Close(); err != nil {
-			err = fmt.Errorf("error closing bucket for %q: %w", name, err)
-			errs = append(errs, err)
+	for name, bs := range f.buckets {
+		for i, b := range bs {
+			if err := b.Close(); err != nil {
+				err = fmt.Errorf("error closing bucket #%d for %q: %w", i, name, err)
+				errs = append(errs, err)
+			}
 		}
 	}
 	if len(errs) > 0 {

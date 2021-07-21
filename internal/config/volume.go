@@ -11,10 +11,10 @@ import (
 	"gocloud.dev/blob/s3blob"
 )
 
-func openBucket(ctx context.Context, cfg *Config, vol *Volume) (*blob.Bucket, error) {
-	if vol.Bucket.AWS != nil {
+func openBucket(ctx context.Context, cfg *Config, bucketConfig *Bucket) (*blob.Bucket, error) {
+	if bucketConfig.AWS != nil {
 		options := aws_session.Options{}
-		if creds := vol.Bucket.AWS.CredentialsFile; creds != nil {
+		if creds := bucketConfig.AWS.CredentialsFile; creds != nil {
 			filename := ""
 			if creds.Path != nil {
 				filename = *creds.Path
@@ -34,23 +34,48 @@ func openBucket(ctx context.Context, cfg *Config, vol *Volume) (*blob.Bucket, er
 		opener := &s3blob.URLOpener{
 			ConfigProvider: session,
 		}
-		bucket, err := opener.OpenBucketURL(ctx, &vol.Bucket.url)
+		bucket, err := opener.OpenBucketURL(ctx, &bucketConfig.url)
 		return bucket, err
 	}
 
-	bucket, err := blob.OpenBucket(ctx, vol.Bucket.URL)
+	bucket, err := blob.OpenBucket(ctx, bucketConfig.URL)
 	return bucket, err
 }
 
-func OpenVolume(ctx context.Context, cfg *Config, vol *Volume) (*cas.Store, *blob.Bucket, error) {
-	bucket, err := openBucket(ctx, cfg, vol)
+func openBuckets(ctx context.Context, cfg *Config, vol *Volume) ([]*blob.Bucket, error) {
+	var buckets []*blob.Bucket
+	defer func() {
+		// Close any buckets left.
+		// The variable is zeroed on success.
+		for _, b := range buckets {
+			_ = b.Close()
+		}
+	}()
+	for _, bucketConfig := range vol.Buckets {
+		bucket, err := openBucket(ctx, cfg, bucketConfig)
+		if err != nil {
+			return nil, err
+		}
+		buckets = append(buckets, bucket)
+	}
+	// Clear out local variable to disarm defer.
+	result := buckets
+	buckets = nil
+	return result, nil
+}
+
+func OpenVolume(ctx context.Context, cfg *Config, vol *Volume) (*cas.Store, []*blob.Bucket, error) {
+	var buckets []*blob.Bucket
+	buckets, err := openBuckets(ctx, cfg, vol)
 	if err != nil {
 		return nil, nil, err
 	}
 	var opts []cas.Option
-	opts = append(opts, cas.WithBucket(bucket))
+	for _, b := range buckets {
+		opts = append(opts, cas.WithBucket(b))
+	}
 	opts = append(opts, cfg.Chunker.CASOptions()...)
 	opts = append(opts, vol.Chunker.CASOptions()...)
 	store := cas.NewStore(vol.Passphrase, opts...)
-	return store, bucket, nil
+	return store, buckets, nil
 }
