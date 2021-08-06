@@ -70,6 +70,6 @@ var read = readCommand{
 }
 
 func init() {
-	read.StringVar(&read.Flags.Volume, "volume", "", "volume to read to")
+	read.StringVar(&read.Flags.Volume, "volume", "", "volume to read from")
 	subcommands.Register(&read)
 }
