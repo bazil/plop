@@ -18,6 +18,7 @@ volume "another" {
   passphrase = "slartibartfast"
   bucket {
     url = "file:///tmp/plopfs-demo"
+    shard_bits = 9
   }
   chunker {
     min = 1 * MiB

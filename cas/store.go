@@ -96,8 +96,9 @@ func newCipher(secret []byte) cipher.AEAD {
 }
 
 type alternativeBucket struct {
-	delay  time.Duration
-	bucket *blob.Bucket
+	delay     time.Duration
+	bucket    *blob.Bucket
+	shardBits uint8
 }
 
 type config struct {
@@ -325,6 +326,14 @@ func (s *Store) _downloadFromBackendV1(prefix constantString, br *blob.Reader) (
 	return buf.Bytes(), nil
 }
 
+func shardPrefix(boxedKeyRaw []byte, shardBits uint8) string {
+	if shardBits == 0 {
+		return ""
+	}
+	shard := zbase32.EncodeBitsToString(boxedKeyRaw, int(shardBits))
+	return shard + "/"
+}
+
 // not using Pool.New because zstd.NewWriter can return an error
 var zstdEncoders sync.Pool
 
@@ -364,8 +373,9 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 	m := multiflight.New()
 	for _, alt := range s.config.buckets {
 		bucket := alt.bucket
+		objectName := shardPrefix(boxedKeyRaw, alt.shardBits) + boxedKey
 		upload := func(ctx context.Context) (interface{}, error) {
-			if err := s.uploadToBackend(ctx, bucket, boxedKey, ciphertext); err != nil {
+			if err := s.uploadToBackend(ctx, bucket, objectName, ciphertext); err != nil {
 				return nil, err
 			}
 			return nil, nil
@@ -385,8 +395,9 @@ func (s *Store) loadObject(ctx context.Context, prefix constantString, hash []by
 	m := multiflight.New()
 	for _, alt := range s.config.buckets {
 		bucket := alt.bucket
+		objectName := shardPrefix(boxedKeyRaw, alt.shardBits) + boxedKey
 		download := func(ctx context.Context) (interface{}, error) {
-			ciphertext, err := s.downloadFromBackend(ctx, bucket, boxedKey, prefix)
+			ciphertext, err := s.downloadFromBackend(ctx, bucket, objectName, prefix)
 			if err != nil {
 				return nil, err
 			}

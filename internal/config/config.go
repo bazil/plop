@@ -55,6 +55,13 @@ type Bucket struct {
 	URL   string `hcl:"url"`
 	url   url.URL
 	AWS   *AWSConfig `hcl:"aws,block"`
+	// ShardBits sets how many bits of the object key to use as a
+	// sharding prefix.
+	//
+	// Note that for flexibility, sharding is *not* done by prefix
+	// bytes of the encoding key, but is instead the corresponding
+	// `zbase32.EncodeBitsToString` of the binary boxed key.
+	ShardBits uint8 `hcl:"shard_bits,optional"`
 }
 
 type AWSConfig struct {

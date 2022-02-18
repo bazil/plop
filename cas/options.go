@@ -43,17 +43,34 @@ func WithChunkGoal(size uint32) Option {
 	return fn
 }
 
-// WithBucket add a bucket as an alternate destination for reads and writes.
-func WithBucket(bucket *blob.Bucket) Option {
-	return WithBucketAfter(0, bucket)
+// WithBucket adds a bucket as an alternate destination for reads and writes.
+func WithBucket(bucket *blob.Bucket, opts ...BucketOption) Option {
+	fn := func(cfg *config) {
+		bucket := alternativeBucket{bucket: bucket}
+		for _, opt := range opts {
+			opt(&bucket)
+		}
+		cfg.buckets = append(cfg.buckets, bucket)
+	}
+	return fn
 }
 
-// WithBucketAfter add a bucket as an alternate destination for reads and writes.
-//
-// It will only be tried after delay has passed, or if all earlier possible buckets have failed.
-func WithBucketAfter(delay time.Duration, bucket *blob.Bucket) Option {
-	fn := func(cfg *config) {
-		cfg.buckets = append(cfg.buckets, alternativeBucket{delay: delay, bucket: bucket})
+type bucketOption func(*alternativeBucket)
+
+type BucketOption bucketOption
+
+// BucketAfter sets a bucket to only be tried after delay has passed,
+// or if all earlier possible buckets have failed.
+func BucketAfter(delay time.Duration) BucketOption {
+	fn := func(bucket *alternativeBucket) {
+		bucket.delay = delay
+	}
+	return fn
+}
+
+func BucketShardBits(shardBits uint8) BucketOption {
+	fn := func(bucket *alternativeBucket) {
+		bucket.shardBits = shardBits
 	}
 	return fn
 }

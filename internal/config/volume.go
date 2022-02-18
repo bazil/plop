@@ -73,7 +73,10 @@ func OpenVolume(ctx context.Context, cfg *Config, vol *Volume) (*cas.Store, []*b
 	var opts []cas.Option
 	for i, b := range buckets {
 		bucketConfig := vol.Buckets[i]
-		opts = append(opts, cas.WithBucketAfter(bucketConfig.delay, b))
+		opts = append(opts, cas.WithBucket(b,
+			cas.BucketAfter(bucketConfig.delay),
+			cas.BucketShardBits(bucketConfig.ShardBits),
+		))
 	}
 	opts = append(opts, cfg.Chunker.CASOptions()...)
 	opts = append(opts, vol.Chunker.CASOptions()...)
