@@ -70,6 +70,6 @@ var extents = extentsCommand{
 }
 
 func init() {
-	extents.StringVar(&extents.Flags.Volume, "volume", "", "volume to extents to")
+	extents.StringVar(&extents.Flags.Volume, "volume", "", "volume to use")
 	subcommands.Register(&extents)
 }
