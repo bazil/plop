@@ -549,3 +549,12 @@ func (s *Store) DebugBoxKey(key string) (string, error) {
 	boxedKey := zbase32.EncodeToString(boxed)
 	return boxedKey, nil
 }
+
+func DebugShardPrefix(boxedKey string, shardBits uint8) (string, error) {
+	boxedKeyRaw, err := zbase32.DecodeString(boxedKey)
+	if err != nil {
+		return "", fmt.Errorf("invalid boxed key: %w", err)
+	}
+	prefix := shardPrefix(boxedKeyRaw, shardBits)
+	return prefix, nil
+}
