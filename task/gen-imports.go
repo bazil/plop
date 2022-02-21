@@ -1,3 +1,4 @@
+//go:build task
 // +build task
 
 // Generate side effect only import statements, usually used for
