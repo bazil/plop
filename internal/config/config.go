@@ -199,11 +199,11 @@ func parseConfig(cfg *Config) error {
 				if bucket.URL == "" {
 					return fmt.Errorf("config block volume %q bucket #%d url must be set", vol.Name, idx+1)
 				}
-				bucket_url, err := url.Parse(bucket.URL)
+				bucketURL, err := url.Parse(bucket.URL)
 				if err != nil {
 					return fmt.Errorf("config block volume %q invalid bucket URL: %v: %v", vol.Name, bucket.URL, err)
 				}
-				bucket.url = *bucket_url
+				bucket.url = *bucketURL
 				if bucket.AWS != nil {
 					if bucket.url.Scheme != s3blob.Scheme {
 						return fmt.Errorf("config block volume %q bucket %v has aws config with non-s3 url", vol.Name, bucket.url.String())
