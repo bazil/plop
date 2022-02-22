@@ -478,6 +478,15 @@ func (s *Store) loadObjectCached(ctx context.Context, prefix constantString, has
 	return buf, nil
 }
 
+func (s *Store) saveExtents(ctx context.Context, plaintext []byte) (string, error) {
+	keyRaw, _, err := s.saveObject(ctx, prefixExtents, plaintext)
+	if err != nil {
+		return "", err
+	}
+	key := zbase32.EncodeToString(keyRaw)
+	return key, nil
+}
+
 func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 	var extents bytes.Buffer
 	ch := chunker.NewWithBoundaries(r, s.chunkerPolynomial,
@@ -515,13 +524,7 @@ func (s *Store) Create(ctx context.Context, r io.Reader) (string, error) {
 		_, _ = extents.Write(extent)
 	}
 
-	plaintext := extents.Bytes()
-	keyRaw, _, err := s.saveObject(ctx, prefixExtents, plaintext)
-	if err != nil {
-		return "", err
-	}
-	key := zbase32.EncodeToString(keyRaw)
-	return key, nil
+	return s.saveExtents(ctx, extents.Bytes())
 }
 
 func (s *Store) Open(ctx context.Context, key string) (*Handle, error) {
@@ -560,6 +563,10 @@ func (s *Store) DebugBoxKey(key string) (string, error) {
 	boxed := s.boxKey(hash)
 	boxedKey := zbase32.EncodeToString(boxed)
 	return boxedKey, nil
+}
+
+func (s *Store) DebugSaveExtents(ctx context.Context, extents []byte) (string, error) {
+	return s.saveExtents(ctx, extents)
 }
 
 func DebugShardPrefix(boxedKey string, shardBits uint8) (string, error) {
