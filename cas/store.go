@@ -330,6 +330,18 @@ func shardPrefix(boxedKeyRaw []byte, shardBits uint8) string {
 	if shardBits == 0 {
 		return ""
 	}
+	{
+		// Pad the key to be long enough for shardBits.
+		// Right now, this can only trigger via manual calls to `plop debug shard -shard-bits=N TOOSHORT`.
+		// It's possible for configuration say shardBits=255 -> need 32 bytes of input, and our boxkeys are exactly 32 bytes.
+		// But let's write defensively.
+		bits := int(shardBits)
+		maxBytes := (bits + 7) / 8
+		if len(boxedKeyRaw) < maxBytes {
+			boxedKeyRaw = append(boxedKeyRaw, make([]byte, maxBytes-len(boxedKeyRaw))...)
+		}
+	}
+
 	shard := zbase32.EncodeBitsToString(boxedKeyRaw, int(shardBits))
 	return shard + "/"
 }
