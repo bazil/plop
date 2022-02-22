@@ -1,4 +1,4 @@
-// Report multiple errors as a single error value.
+// Package multierr helps report multiple errors as a single error value.
 //
 // Because typed nil values stored in interfaces are non-nil, callers
 // should take care to only return instances of MultiErr if an error

@@ -1,4 +1,4 @@
-// Make multiple attempts, even concurrently.
+// Package multiflight manages multiple attempts, even concurrently.
 package multiflight
 
 import (
