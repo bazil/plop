@@ -140,7 +140,7 @@ func (m *Multiflight) Run(ctx context.Context) (interface{}, error) {
 				}
 				debugf("worker error: %v", r.err)
 				errs = append(errs, r.err)
-				numWorkers -= 1
+				numWorkers--
 			}
 		}
 
@@ -153,7 +153,7 @@ func (m *Multiflight) Run(ctx context.Context) (interface{}, error) {
 		if wantMore && len(actions) > 0 {
 			act := actions[0]
 			actions = actions[1:]
-			numWorkers += 1
+			numWorkers++
 			debugf("start worker: num=%d", numWorkers)
 			go func() {
 				success, err := act.fn(ctx)
