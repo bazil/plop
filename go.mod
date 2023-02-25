@@ -18,7 +18,7 @@ require (
 	github.com/zeebo/blake3 v0.1.2
 	gocloud.dev v0.23.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+	golang.org/x/sys v0.1.0
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/tools v0.1.5
 )
