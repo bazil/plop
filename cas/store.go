@@ -7,7 +7,7 @@
 // data. Contents are encrypted with AEAD. All keys used are derived
 // from the user-controlled secret by Argon2 KDFs.
 //
-// Limitations
+// # Limitations
 //
 // - No key rotation (at this level)
 // - No garbage collection (at this level)

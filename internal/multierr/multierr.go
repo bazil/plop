@@ -4,12 +4,12 @@
 // should take care to only return instances of MultiErr if an error
 // actually occurred.
 //
-//     var errs []error
-//     // ...
-//     if len(errs) > 0 {
-//         return multierr.New(errs)
-//     }
-//     return nil
+//	var errs []error
+//	// ...
+//	if len(errs) > 0 {
+//	    return multierr.New(errs)
+//	}
+//	return nil
 //
 // The New function helps catch this mistake by panicking on empty
 // input.
