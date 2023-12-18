@@ -16,9 +16,9 @@ require (
 	github.com/zclconf/go-cty v1.9.0
 	github.com/zeebo/blake3 v0.1.2
 	gocloud.dev v0.23.0
-	golang.org/x/crypto v0.12.0
-	golang.org/x/sys v0.11.0
-	golang.org/x/term v0.11.0
+	golang.org/x/crypto v0.17.0
+	golang.org/x/sys v0.15.0
+	golang.org/x/term v0.15.0
 	golang.org/x/tools v0.12.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
