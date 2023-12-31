@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"bazil.org/plop/cas"
@@ -37,7 +37,7 @@ func FuzzRoundtrip(f *testing.F) {
 		}
 
 		r := h.IO(ctx)
-		buf, err := ioutil.ReadAll(r)
+		buf, err := io.ReadAll(r)
 		if err != nil {
 			t.Fatal(fmt.Errorf("Read: %v", err))
 		}

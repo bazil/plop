@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
@@ -39,7 +39,7 @@ func readOneLocalConfigAt(dirfd int) (*Local, error) {
 	}
 	f := os.NewFile(uintptr(fd), localConfigFilename)
 	defer f.Close()
-	src, err := ioutil.ReadAll(f)
+	src, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}

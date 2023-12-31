@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -68,7 +68,7 @@ func mustWriteBlob(t testing.TB, store *cas.Store, data []byte) string {
 func tempDir(tb testing.TB) string {
 	// TODO with go1.15 use testing.TB.TempDir
 	tb.Helper()
-	p, err := ioutil.TempDir("", "plopfs-test-*.tmp")
+	p, err := os.MkdirTemp("", "plopfs-test-*.tmp")
 	if err != nil {
 		tb.Fatalf("cannot make temp dir: %v", err)
 	}
@@ -90,7 +90,7 @@ type readdirEntry struct {
 }
 
 func doReaddir(ctx context.Context, dir string) (*readdirResult, error) {
-	fis, err := ioutil.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +98,14 @@ func doReaddir(ctx context.Context, dir string) (*readdirResult, error) {
 		// avoid null in JSON
 		Entries: []readdirEntry{},
 	}
-	for _, fi := range fis {
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
 		r.Entries = append(r.Entries, readdirEntry{
-			Name: fi.Name(),
-			Mode: fi.Mode(),
+			Name: entry.Name(),
+			Mode: info.Mode(),
 		})
 	}
 	return r, nil
@@ -326,7 +330,7 @@ func doReadFstat(ctx context.Context, path string) (*readFstatResult, error) {
 	}
 	st := fi.Sys().(*syscall.Stat_t)
 
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("ReadAll: %v", err)
 	}

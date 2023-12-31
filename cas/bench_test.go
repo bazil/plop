@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"bazil.org/plop/cas"
@@ -78,7 +77,7 @@ func benchmarkRead(b *testing.B, size int) {
 				b.Fatalf("open failed: %v", err)
 			}
 			r := h.IO(ctx)
-			n, err := io.Copy(ioutil.Discard, r)
+			n, err := io.Copy(io.Discard, r)
 			if err != nil {
 				b.Fatalf("read failed: %v", err)
 			}

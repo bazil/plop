@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -56,7 +55,7 @@ func expandPackages(spec []string) ([]*packages.Package, error) {
 
 func process(dst string, imports []string) error {
 	dir := filepath.Dir(dst)
-	tmp, err := ioutil.TempFile(dir, "temp-gen-import-all-")
+	tmp, err := os.CreateTemp(dir, "temp-gen-import-all-")
 	if err != nil {
 		return err
 	}

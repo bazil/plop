@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -95,7 +94,7 @@ func TestRoundtrip(t *testing.T) {
 
 	ctxRead := context.Background()
 	r := h.IO(ctxRead)
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -139,7 +138,7 @@ func TestCreateSizeZero(t *testing.T) {
 
 	ctxRead := context.Background()
 	r := h.IO(ctxRead)
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}

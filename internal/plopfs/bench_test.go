@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -32,7 +31,7 @@ func doBenchReadSequential(ctx context.Context, req benchReadSequentialRequest) 
 		if _, err := f.Seek(0, io.SeekStart); err != nil {
 			return nil, err
 		}
-		n, err := io.Copy(ioutil.Discard, f)
+		n, err := io.Copy(io.Discard, f)
 		if err != nil {
 			return nil, err
 		}
