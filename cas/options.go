@@ -74,3 +74,10 @@ func BucketShardBits(shardBits uint8) BucketOption {
 	}
 	return fn
 }
+
+func BucketReadOnly(readOnly bool) BucketOption {
+	fn := func(bucket *alternativeBucket) {
+		bucket.readOnly = readOnly
+	}
+	return fn
+}

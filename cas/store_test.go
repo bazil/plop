@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"bazil.org/plop/cas"
 	"gocloud.dev/blob"
@@ -341,4 +342,28 @@ func TestDebugBoxKey(t *testing.T) {
 	if g, e := boxed, "1kw7n9191hmkx5ywk6g8us6oqt1drtptb97orgw69a46seoqmuhy"; g != e {
 		t.Errorf("bad boxed key: %q != %q", g, e)
 	}
+}
+
+func TestWriteSkipsReadOnly(t *testing.T) {
+	readOnlyBucket := memblob.OpenBucket(nil)
+	writableBucket := memblob.OpenBucket(nil)
+	s := cas.NewStore("s3kr1t",
+		cas.WithBucket(readOnlyBucket, cas.BucketReadOnly(true)),
+		cas.WithBucket(writableBucket, cas.BucketAfter(100*time.Millisecond)),
+	)
+
+	const greeting = "hello, write test\n"
+	ctx := context.Background()
+	object, err := s.Create(ctx, strings.NewReader(greeting))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	t.Logf("object=%q", object)
+	// nothing written to read-only bucket
+	checkBucket(t, readOnlyBucket)
+	// object stored in writable bucket (blob and extents)
+	checkBucket(t, writableBucket,
+		"iboe48i5mmucg8hq7rfu15ce3uf5ts89iimug5iwuse38na33fay",
+		"xf6hfkxbhb5qkwxe3szma957nzxxyazyx9w3rgh5mrqa9okc4msy",
+	)
 }

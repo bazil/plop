@@ -96,6 +96,7 @@ func newCipher(secret []byte) cipher.AEAD {
 }
 
 type alternativeBucket struct {
+	readOnly  bool
 	delay     time.Duration
 	bucket    *blob.Bucket
 	shardBits uint8
@@ -384,6 +385,9 @@ func (s *Store) saveObject(ctx context.Context, prefix constantString, plaintext
 
 	m := multiflight.New()
 	for _, alt := range s.config.buckets {
+		if alt.readOnly {
+			continue
+		}
 		bucket := alt.bucket
 		objectName := shardPrefix(boxedKeyRaw, alt.shardBits) + boxedKey
 		upload := func(ctx context.Context) (interface{}, error) {

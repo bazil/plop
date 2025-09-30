@@ -52,9 +52,13 @@ type Volume struct {
 type Bucket struct {
 	Delay *string `hcl:"delay"`
 	delay time.Duration
-	URL   string `hcl:"url"`
-	url   url.URL
-	AWS   *AWSConfig `hcl:"aws,block"`
+	// Do not make write operations to this bucket.
+	//
+	// This is useful for e.g. migrating away from a storage system.
+	ReadOnly bool   `hcl:"readonly,optional"`
+	URL      string `hcl:"url"`
+	url      url.URL
+	AWS      *AWSConfig `hcl:"aws,block"`
 	// ShardBits sets how many bits of the object key to use as a
 	// sharding prefix.
 	//
