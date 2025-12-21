@@ -5,15 +5,22 @@ import (
 	"path/filepath"
 
 	"bazil.org/plop/cas"
-	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	aws_session "github.com/aws/aws-sdk-go/aws/session"
+	aws_config "github.com/aws/aws-sdk-go-v2/config"
+	gocloud_aws "gocloud.dev/aws"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/s3blob"
 )
 
 func openBucket(ctx context.Context, cfg *Config, bucketConfig *Bucket) (*blob.Bucket, error) {
-	if bucketConfig.AWS != nil {
-		options := aws_session.Options{}
+	if bucketConfig.url.Scheme == "s3" {
+		// It seems with how `gocloud.dev` uses `github.com/aws/aws-sdk-go-v2`, we can't inject per-use-case credentials without reimplementing the (admittedly trivial) bucket URL parsing.
+		// The API split between `V2ConfigFromURLParams` and the actual AWS SDK is incredibly awkward.
+		// We used to be able to pass a config to `gocloud.dev/blob/s3blob.URLOpener`, but that's no longer in the API, so now we have to reimplement parts of that.
+		bucketName := bucketConfig.url.Host
+		awsConfigForBucket, err := gocloud_aws.V2ConfigFromURLParams(ctx, bucketConfig.url.Query())
+		if err != nil {
+			return nil, err
+		}
 		if creds := bucketConfig.AWS.CredentialsFile; creds != nil {
 			filename := ""
 			if creds.Path != nil {
@@ -25,16 +32,19 @@ func openBucket(ctx context.Context, cfg *Config, bucketConfig *Bucket) (*blob.B
 			if creds.Profile != nil {
 				profile = *creds.Profile
 			}
-			options.Config.Credentials = aws_credentials.NewSharedCredentials(filename, profile)
+			// Load credentials from the specified file and profile.
+			// This repeats work one inside `gocloud_aws.V2ConfigFromURLParams` but we can't control that.
+			credsCfg, err := aws_config.LoadDefaultConfig(ctx,
+				aws_config.WithSharedCredentialsFiles([]string{filename}),
+				aws_config.WithSharedConfigProfile(profile),
+			)
+			if err != nil {
+				return nil, err
+			}
+			awsConfigForBucket.Credentials = credsCfg.Credentials
 		}
-		session, err := aws_session.NewSessionWithOptions(options)
-		if err != nil {
-			return nil, err
-		}
-		opener := &s3blob.URLOpener{
-			ConfigProvider: session,
-		}
-		bucket, err := opener.OpenBucketURL(ctx, &bucketConfig.url)
+		s3Client := s3blob.Dial(awsConfigForBucket)
+		bucket, err := s3blob.OpenBucket(ctx, s3Client, bucketName, nil)
 		return bucket, err
 	}
 
